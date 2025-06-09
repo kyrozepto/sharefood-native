@@ -32,7 +32,7 @@ const mockRequests = [
       totalRequests: 12,
       image: "https://picsum.photos/202",
     },
-    quantity: "3kg",
+    quantity: "3 serving",
     status: "approved",
     message: "I'll be there in 30 minutes",
     timeRequested: "5 minutes ago",

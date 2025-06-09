@@ -15,7 +15,7 @@ const mockPickup = {
   donation: {
     title: "Fresh Vegetables",
     quantity: "5kg",
-    image: "https://picsum.photos/200",
+    image: "https://images.pexels.com/photos/3872406/pexels-photo-3872406.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
   },
   recipient: {
     name: "Alice Smith",
@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: theme.spacing.lg,
-    paddingBottom: theme.spacing.xl,
+    paddingBottom: theme.spacing.xl, // Add padding to the bottom of the scrollable content
   },
   section: {
     marginBottom: theme.spacing.xl,

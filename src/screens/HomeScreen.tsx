@@ -24,7 +24,7 @@ const mockRecentDonations = [
     quantity: "5kg",
     location: "2.5km away",
     timeLeft: "2 hours",
-    image: "https://picsum.photos/200",
+    image: "https://images.pexels.com/photos/3872406/pexels-photo-3872406.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
   },
   {
     id: "2",
@@ -32,7 +32,7 @@ const mockRecentDonations = [
     quantity: "10 pieces",
     location: "1.8km away",
     timeLeft: "4 hours",
-    image: "https://picsum.photos/201",
+    image: "https://images.pexels.com/photos/30816577/pexels-photo-30816577/free-photo-of-rustic-artisan-bread-loaf-on-floured-surface.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
   },
 ]
 

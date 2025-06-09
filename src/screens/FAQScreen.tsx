@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
     marginRight: theme.spacing.md,
   },
   answer: {
-    color: theme.colors.textSecondary,
+    color: theme.colors.textTertiary,
     fontFamily: theme.font.family.regular,
     fontSize: theme.font.size.md,
     marginTop: theme.spacing.md,

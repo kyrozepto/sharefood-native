@@ -14,7 +14,7 @@ const mockNotifications = [
     id: "1",
     type: "request",
     title: "New Request",
-    message: "Alice Smith requested 2kg of your Fresh Vegetables donation",
+    message: "Alice Smith requested 2kg of your  donation",
     time: "5 min ago",
     read: false,
     data: {

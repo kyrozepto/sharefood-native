@@ -14,6 +14,7 @@ import {
 } from "react-native"
 import { useNavigation } from "@react-navigation/native"
 import { Ionicons } from "@expo/vector-icons"
+import * as ImagePicker from "expo-image-picker"
 import type { RootNavigationProp } from "../navigation/types"
 import { globalStyles, theme } from "../utils/theme"
 
@@ -39,9 +40,59 @@ const AccountSettingsScreen: React.FC = () => {
     Alert.alert("Success", "Profile updated successfully!")
   }
 
-  const handleChangeProfilePicture = () => {
-    // Here you would typically implement image picker functionality
-    Alert.alert("Coming Soon", "Profile picture update feature will be available soon!")
+  const handleChangeProfilePicture = async () => {
+    Alert.alert(
+      "Change Profile Picture",
+      "Choose photo source",
+      [
+        {
+          text: "Camera",
+          onPress: async () => {
+            const { status } = await ImagePicker.requestCameraPermissionsAsync()
+            if (status !== "granted") {
+              Alert.alert("Permission Required", "Please grant camera permission to take photos")
+              return
+            }
+            const result = await ImagePicker.launchCameraAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              allowsEditing: true,
+              aspect: [1, 1],
+              quality: 1,
+            })
+            if (!result.canceled) {
+              // Here you would typically upload the image to your backend
+              // For now, we'll just show a success message
+              Alert.alert("Success", "Profile picture updated successfully!")
+            }
+          },
+        },
+        {
+          text: "Gallery",
+          onPress: async () => {
+            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
+            if (status !== "granted") {
+              Alert.alert("Permission Required", "Please grant gallery permission to select photos")
+              return
+            }
+            const result = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              allowsEditing: true,
+              aspect: [1, 1],
+              quality: 1,
+            })
+            if (!result.canceled) {
+              // Here you would typically upload the image to your backend
+              // For now, we'll just show a success message
+              Alert.alert("Success", "Profile picture updated successfully!")
+            }
+          },
+        },
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+      ]
+    )
   }
 
   return (

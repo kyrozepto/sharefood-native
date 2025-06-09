@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { View, Text, StyleSheet, ScrollView, Image, SafeAreaView } from "react-native"
+import { View, Text, StyleSheet, ScrollView, Image, SafeAreaView, TouchableOpacity } from "react-native"
 import { useNavigation } from "@react-navigation/native"
 import { Ionicons } from "@expo/vector-icons"
 import type { RootNavigationProp } from "../navigation/types"
@@ -29,29 +29,37 @@ const AboutScreen: React.FC = () => {
     <SafeAreaView style={globalStyles.safeArea}>
       <ScrollView style={globalStyles.container}>
         <View style={styles.header}>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Ionicons name="arrow-back" size={24} color={theme.colors.textPrimary} />
+          </TouchableOpacity>
           <Text style={styles.title}>About App</Text>
+          <View style={{ width: 24 }} />
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>AtlusMusic</Text>
+          <Text style={styles.sectionTitle}>ShareFood</Text>
           <Text style={styles.description}>
-            Stream a wide range of modern music with the cool vibe of Atlus games. Enjoy your custom playlists and easy listening.
+            ShareFood is a community-driven platform that connects food donors with those in need. 
+            Our mission is to reduce food waste and help those facing food insecurity by making food sharing simple and accessible.
           </Text>
         </View>
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>What's on AtlusMusic?</Text>
+          <Text style={styles.sectionTitle}>What's on ShareFood?</Text>
           <View style={styles.featureList}>
             <View style={styles.featureItem}>
-              <Ionicons name="musical-notes" size={24} color={theme.colors.accent} />
-              <Text style={styles.featureText}>Music Library</Text>
+              <Ionicons name="restaurant" size={24} color={theme.colors.accent} />
+              <Text style={styles.featureText}>Food Donation</Text>
             </View>
             <View style={styles.featureItem}>
-              <Ionicons name="play-circle" size={24} color={theme.colors.accent} />
-              <Text style={styles.featureText}>Audio Streaming</Text>
+              <Ionicons name="location" size={24} color={theme.colors.accent} />
+              <Text style={styles.featureText}>Pickup Management</Text>
             </View>
             <View style={styles.featureItem}>
-              <Ionicons name="list" size={24} color={theme.colors.accent} />
-              <Text style={styles.featureText}>Custom Playlists</Text>
+              <Ionicons name="people" size={24} color={theme.colors.accent} />
+              <Text style={styles.featureText}>Donators and Recipients</Text>
             </View>
           </View>
         </View>
@@ -72,7 +80,7 @@ const AboutScreen: React.FC = () => {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Version</Text>
-          <Text style={styles.versionText}>v1.0.2</Text>
+          <Text style={styles.versionText}>v1.0.0</Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -81,13 +89,23 @@ const AboutScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: theme.spacing.xl,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: theme.colors.backgroundSecondary,
+    justifyContent: "center",
+    alignItems: "center",
   },
   title: {
     color: theme.colors.textPrimary,
     fontFamily: theme.font.family.bold,
-    fontSize: theme.font.size.xxl,
-    textAlign: "center",
+    fontSize: theme.font.size.xl,
   },
   section: {
     marginBottom: theme.spacing.xl,

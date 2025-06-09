@@ -146,10 +146,17 @@ const ProfileScreen: React.FC = () => {
                         <Ionicons name="chevron-forward" size={20} color={theme.colors.textPrimary} />
                     </TouchableOpacity>
 
+                    {/* <View style={styles.divider} />
+
+                    <TouchableOpacity style={styles.settingRow} activeOpacity={0.7} onPress={() => navigation.navigate("PrivacyPolicy")}>
+                        <Text style={styles.settingLabel}>Privacy Policy</Text>
+                        <Ionicons name="chevron-forward" size={20} color={theme.colors.textPrimary} />
+                    </TouchableOpacity> */}
+
                     <View style={styles.divider} />
 
-                    <TouchableOpacity style={styles.settingRow} activeOpacity={0.7}>
-                        <Text style={styles.settingLabel}>Privacy Policy</Text>
+                    <TouchableOpacity style={styles.settingRow} activeOpacity={0.7} onPress={() => navigation.navigate("FAQ")}>
+                        <Text style={styles.settingLabel}>FAQ</Text>
                         <Ionicons name="chevron-forward" size={20} color={theme.colors.textPrimary} />
                     </TouchableOpacity>
 

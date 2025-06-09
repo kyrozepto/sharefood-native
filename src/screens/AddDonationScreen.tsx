@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useState } from "react"
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Image } from "react-native"
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Image, Alert } from "react-native"
 import { useNavigation } from "@react-navigation/native"
 import { Ionicons } from "@expo/vector-icons"
 import * as ImagePicker from "expo-image-picker"
@@ -29,17 +29,56 @@ const AddDonationScreen: React.FC = () => {
   })
 
   const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 1,
-    })
-
-    if (!result.canceled) {
-      setImage(result.assets[0].uri)
-      clearError("image")
-    }
+    Alert.alert(
+      "Add Photo",
+      "Choose photo source",
+      [
+        {
+          text: "Camera",
+          onPress: async () => {
+            const { status } = await ImagePicker.requestCameraPermissionsAsync()
+            if (status !== "granted") {
+              Alert.alert("Permission Required", "Please grant camera permission to take photos")
+              return
+            }
+            const result = await ImagePicker.launchCameraAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              allowsEditing: true,
+              aspect: [4, 3],
+              quality: 1,
+            })
+            if (!result.canceled) {
+              setImage(result.assets[0].uri)
+              clearError("image")
+            }
+          },
+        },
+        {
+          text: "Gallery",
+          onPress: async () => {
+            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
+            if (status !== "granted") {
+              Alert.alert("Permission Required", "Please grant gallery permission to select photos")
+              return
+            }
+            const result = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              allowsEditing: true,
+              aspect: [4, 3],
+              quality: 1,
+            })
+            if (!result.canceled) {
+              setImage(result.assets[0].uri)
+              clearError("image")
+            }
+          },
+        },
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+      ]
+    )
   }
 
   const handleSubmit = async () => {

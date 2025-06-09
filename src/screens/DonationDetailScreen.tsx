@@ -23,7 +23,7 @@ const mockDonation = {
     rating: 4.8,
     totalDonations: 15,
   },
-  image: "https://picsum.photos/200",
+  image: "https://images.pexels.com/photos/3872406/pexels-photo-3872406.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
   // ...
 }
 
@@ -112,17 +112,9 @@ const DonationDetailScreen: React.FC = () => {
 
           <Button 
             title="Request Donation" 
-            onPress={() => setIsRequestModalVisible(true)}
+            onPress={() => navigation.navigate("RequestForm", { donation: mockDonation })}
           />
         </View>
-        <Modal
-          visible={isRequestModalVisible}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setIsRequestModalVisible(false)}
-        >
-          {/* ... Modal content ... */}
-        </Modal>
       </ScrollView>
     </SafeAreaView>
   )

@@ -1,5 +1,4 @@
 import type { NavigationProp, RouteProp } from "@react-navigation/native"
-import type { Song } from "../types"
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack"
 
 export type RootStackParamList = {
@@ -23,6 +22,24 @@ export type RootStackParamList = {
   DonationHistory: undefined
   Profile: undefined
   AccountSettings: undefined
+  RequestForm: {
+    donation: {
+      id: string
+      title: string
+      description: string
+      quantity: string
+      expiryTime: string
+      location: string
+      distance: string
+      donor: {
+        name: string
+        rating: number
+        totalDonations: number
+      }
+      image: string
+    }
+  }
+  DonationActivity: undefined
 }
 
 export type AuthStackParamList = {

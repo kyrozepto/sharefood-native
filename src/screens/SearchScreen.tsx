@@ -19,7 +19,7 @@ const mockFoodItems = [
     quantity: "5kg",
     distance: "2.5km",
     expiryTime: "2 hours",
-    image: "https://picsum.photos/200",
+    image: "https://images.pexels.com/photos/3872406/pexels-photo-3872406.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
     category: "Vegetables",
   },
   {
@@ -28,7 +28,7 @@ const mockFoodItems = [
     quantity: "10 pieces",
     distance: "1.8km",
     expiryTime: "4 hours",
-    image: "https://picsum.photos/201",
+    image: "https://images.pexels.com/photos/30816577/pexels-photo-30816577/free-photo-of-rustic-artisan-bread-loaf-on-floured-surface.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
     category: "Bakery",
   },
   {
@@ -37,7 +37,7 @@ const mockFoodItems = [
     quantity: "15 cans",
     distance: "3.2km",
     expiryTime: "1 week",
-    image: "https://picsum.photos/202",
+    image: "https://images.pexels.com/photos/6590914/pexels-photo-6590914.jpeg",
     category: "Non-perishable",
   },
 ]

@@ -21,6 +21,10 @@ import ReviewRatingScreen from "../screens/ReviewRatingScreen"
 import NotificationsScreen from "../screens/NotificationsScreen"
 import AboutScreen from "../screens/AboutScreen"
 import AccountSettingsScreen from "../screens/AccountSettingsScreen"
+import RequestFormScreen from "../screens/RequestFormScreen"
+import DonationActivityScreen from "../screens/DonationActivityScreen"
+// import PrivacyPolicyScreen from "../screens/PrivacyPolicyScreen"
+import FAQScreen from "../screens/FAQScreen"
 // Types
 import type { RootStackParamList, AuthStackParamList, MainTabParamList } from "./types"
 
@@ -93,7 +97,7 @@ const MainTabNavigator = () => {
       >
         <Tab.Screen name="Home" component={HomeScreen} />
         <Tab.Screen name="Search" component={SearchScreen} />
-        <Tab.Screen name="Donations" component={DonationDetailScreen} />
+        <Tab.Screen name="Donations" component={DonationActivityScreen} />
         <Tab.Screen name="Profile" component={ProfileScreen} />
       </Tab.Navigator>
     </View>
@@ -128,7 +132,10 @@ const AppNavigator = () => {
         <Stack.Screen name="Notifications" component={NotificationsScreen} />
         <Stack.Screen name="About" component={AboutScreen} />
         <Stack.Screen name="AccountSettings" component={AccountSettingsScreen} />
-        <Stack.Screen name="Search" component={SearchScreen} />
+        <Stack.Screen name="RequestForm" component={RequestFormScreen} />
+        <Stack.Screen name="DonationActivity" component={DonationActivityScreen} />
+        {/* <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} /> */}
+        <Stack.Screen name="FAQ" component={FAQScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   )
