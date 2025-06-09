@@ -1,5 +1,6 @@
-![ShareFood Logo](assets/images/sharefood-logo-dark.png)
-## ShareFood
+<img src="assets/images/sharefood-logo-dark.png" alt="ShareFood Logo" width="150" />
+
+## ShareFood ```Mobile App```
 
 Modern food donation and sharing application built with React Native and Expo.
 
