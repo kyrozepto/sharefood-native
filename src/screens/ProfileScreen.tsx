@@ -72,9 +72,6 @@ const ProfileScreen: React.FC = () => {
                 {/* Profile Picture */}
                 <View style={styles.profileImageContainer}>
                     <Image source={require("../../assets/images/profile_image.jpg")} style={styles.profileImage} />
-                    <TouchableOpacity style={styles.editImageButton} activeOpacity={0.7}>
-                        <Ionicons name="camera" size={20} color={theme.colors.textPrimary} />
-                    </TouchableOpacity>
                 </View>
 
                 {/* Username (edit) */}
@@ -170,6 +167,8 @@ const ProfileScreen: React.FC = () => {
                         <Text style={styles.settingLabel}>About App</Text>
                         <Ionicons name="chevron-forward" size={20} color={theme.colors.textPrimary} />
                     </TouchableOpacity>
+
+                    <View style={styles.divider} />
 
                     <TouchableOpacity style={styles.settingRow} onPress={handleLogout} activeOpacity={0.7}>
                         <Text style={[styles.settingLabel, styles.logoutText]}>Logout</Text>

@@ -6,6 +6,9 @@ import { useNavigation } from "@react-navigation/native"
 import { Ionicons } from "@expo/vector-icons"
 import type { RootNavigationProp } from "../navigation/types"
 import { globalStyles, theme } from "../utils/theme"
+import logo from "../../assets/images/sharefood-logo-dark.png"
+import SDG2 from "../../assets/images/SDG2.png"
+import SDG12 from "../../assets/images/SDG12.png"
 
 const AboutScreen: React.FC = () => {
   const navigation = useNavigation<RootNavigationProp>()
@@ -37,6 +40,14 @@ const AboutScreen: React.FC = () => {
           </TouchableOpacity>
           <Text style={styles.title}>About App</Text>
           <View style={{ width: 24 }} />
+        </View>
+
+        <View style={styles.logoContainer}>
+          <Image source={logo} style={styles.logo} />
+          <View style={styles.sdgContainer}>
+            <Image source={SDG2} style={styles.sdgImage} />
+            <Image source={SDG12} style={styles.sdgImage} />
+          </View>
         </View>
 
         <View style={styles.section}>
@@ -175,6 +186,27 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     fontFamily: theme.font.family.medium,
     fontSize: theme.font.size.md,
+  },
+  logo: {
+    width: 180,
+    height: 180,
+    alignSelf: "center",
+  },
+  logoContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: theme.spacing.lg,
+    gap: theme.spacing.md,
+  },
+  sdgContainer: {
+    flexDirection: "column",
+    gap: theme.spacing.sm,
+  },
+  sdgImage: {
+    width: 85,
+    height: 85,
+    borderRadius: theme.borderRadius.md,
   },
 })
 

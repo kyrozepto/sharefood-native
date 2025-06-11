@@ -8,7 +8,7 @@ import { Ionicons } from "@expo/vector-icons"
 import type { RootNavigationProp } from "../navigation/types"
 import { globalStyles, theme } from "../utils/theme"
 import Button from "../components/Button"
-
+import DonationImage from "../../assets/images/home-donation.jpg"
 // Mock data - replace with actual data from your backend
 const mockStats = {
   donations: 12,
@@ -42,64 +42,76 @@ const HomeScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={globalStyles.safeArea}>
-      <ScrollView style={globalStyles.container}>
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>Hello, John!</Text>
-            <Text style={styles.subtitle}>
-              {userRole === "donor" ? "Ready to share some food?" : "Looking for food donations?"}
-            </Text>
-          </View>
-          <TouchableOpacity 
-            style={styles.notificationButton}
-            onPress={() => navigation.navigate("Notifications")}
-          >
-            <Ionicons name="notifications" size={24} color={theme.colors.textPrimary} />
-          </TouchableOpacity>
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.greeting}>Hello, Ka!</Text>
+          <Text style={styles.subtitle}>
+            {userRole === "donor" ? "Ready to share some food?" : "Looking for food donations?"}
+          </Text>
         </View>
-
-        <View style={styles.statsContainer}>
-          <View style={styles.statCard}>
-            <Ionicons name="restaurant" size={24} color={theme.colors.accent} />
-            <Text style={styles.statValue}>{mockStats.donations}</Text>
-            <Text style={styles.statLabel}>Donations</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Ionicons name="people" size={24} color={theme.colors.accent} />
-            <Text style={styles.statValue}>{mockStats.requests}</Text>
-            <Text style={styles.statLabel}>Requests</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Ionicons name="leaf" size={24} color={theme.colors.accent} />
-            <Text style={styles.statValue}>{mockStats.impact}</Text>
-            <Text style={styles.statLabel}>Impact</Text>
-          </View>
-        </View>
-
+        <TouchableOpacity 
+          style={styles.notificationButton}
+          onPress={() => navigation.navigate("Notifications")}
+        >
+          <Ionicons name="notifications" size={24} color={theme.colors.textPrimary} />
+        </TouchableOpacity>
+      </View>
+      <ScrollView style={[globalStyles.container, styles.scrollContent]}>
         {userRole === "donor" ? (
           // for user role donor
+          <View style={styles.section}>
+            <Image source={DonationImage} style={styles.donorImage} />
           <View style={styles.actionContainer}>
+            <Text style={[styles.sectionTitle, { marginBottom: theme.spacing.lg }]}>Your Donation Stats</Text>
+            <View style={styles.statsContainer}>
+              <TouchableOpacity 
+                style={styles.statCard}
+                onPress={() => navigation.navigate("DonationList")}
+              >
+                <Ionicons name="restaurant" size={24} color={theme.colors.accent} />
+                <Text style={styles.statValue}>{mockStats.donations}</Text>
+                <Text style={styles.statLabel}>Donations</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.statCard}
+                onPress={() => navigation.navigate("Donations")}
+              >
+                <Ionicons name="people" size={24} color={theme.colors.accent} />
+                <Text style={styles.statValue}>{mockStats.requests}</Text>
+                <Text style={styles.statLabel}>Requests</Text>
+              </TouchableOpacity>
+              <View style={styles.statCard}>
+                <Ionicons name="leaf" size={24} color={theme.colors.accent} />
+                <Text style={styles.statValue}>{mockStats.impact}</Text>
+                <Text style={styles.statLabel}>Impact</Text>
+              </View>
+            </View>
             <Button 
               title="Add New Donation" 
               onPress={() => navigation.navigate("AddDonation")}
-            />
+              />
+              <Button style={{ backgroundColor: theme.colors.accent, borderWidth: 2}}
+              title="Check Activity"
+              onPress={() => navigation.navigate("Donations")}
+              />
+            </View>
           </View>
         ) : (
           // for user role recipient
           <View style={styles.actionContainer}>
             <Button 
-              title="Search Donations" 
-              onPress={() => navigation.navigate("Search")}
+              title="Search Donations"
+              onPress={() => navigation.navigate("DonationList")}
             />
           </View>
         )}
 
-        <View style={styles.section}>
+        <View style={[styles.section, { paddingBottom: 100 }]}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>
               {userRole === "donor" ? "Your Recent Donations" : "Available Donations"}
             </Text>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => navigation.navigate("DonationList")}>
               <Text style={styles.seeAllText}>See All</Text>
             </TouchableOpacity>
           </View>
@@ -138,7 +150,18 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: theme.spacing.xl,
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.xxl,
+    paddingVertical: theme.spacing.md,
+    backgroundColor: "#000000",
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1,
+  },
+  scrollContent: {
+    paddingTop: 100,
   },
   greeting: {
     color: theme.colors.textPrimary,
@@ -161,7 +184,7 @@ const styles = StyleSheet.create({
   statsContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: theme.spacing.lg,
+    marginBottom: theme.spacing.xs,
   },
   statCard: {
     flex: 1,
@@ -186,7 +209,8 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.xl,
   },
   section: {
-    marginBottom: theme.spacing.xl,
+    marginTop: theme.spacing.sm,
+    marginBottom: theme.spacing.md,
   },
   sectionHeader: {
     flexDirection: "row",
@@ -244,6 +268,12 @@ const styles = StyleSheet.create({
     fontFamily: theme.font.family.regular,
     fontSize: theme.font.size.sm,
     marginLeft: theme.spacing.xs,
+  },
+  donorImage: {
+    width: "100%",
+    height: 200,
+    borderRadius: 16,
+    marginBottom: theme.spacing.md,
   },
 })
 

@@ -23,6 +23,8 @@ import AboutScreen from "../screens/AboutScreen"
 import AccountSettingsScreen from "../screens/AccountSettingsScreen"
 import RequestFormScreen from "../screens/RequestFormScreen"
 import DonationActivityScreen from "../screens/DonationActivityScreen"
+import DonationListScreen from "../screens/DonationListScreen"
+import EditDonationScreen from "../screens/EditDonationScreen"
 // import PrivacyPolicyScreen from "../screens/PrivacyPolicyScreen"
 import FAQScreen from "../screens/FAQScreen"
 // Types
@@ -134,6 +136,8 @@ const AppNavigator = () => {
         <Stack.Screen name="AccountSettings" component={AccountSettingsScreen} />
         <Stack.Screen name="RequestForm" component={RequestFormScreen} />
         <Stack.Screen name="DonationActivity" component={DonationActivityScreen} />
+        <Stack.Screen name="DonationList" component={DonationListScreen} />
+        <Stack.Screen name="EditDonation" component={EditDonationScreen} />
         {/* <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} /> */}
         <Stack.Screen name="FAQ" component={FAQScreen} />
       </Stack.Navigator>

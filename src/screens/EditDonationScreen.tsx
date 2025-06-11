@@ -1,23 +1,35 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Image, Alert } from "react-native"
-import { useNavigation } from "@react-navigation/native"
+import { useNavigation, useRoute } from "@react-navigation/native"
 import { Ionicons } from "@expo/vector-icons"
 import * as ImagePicker from "expo-image-picker"
-import type { RootNavigationProp } from "../navigation/types"
+import type { RootNavigationProp, RootRouteProp } from "../navigation/types"
 import { globalStyles, theme } from "../utils/theme"
 import Button from "../components/Button"
 
-const AddDonationScreen: React.FC = () => {
+// Mock data - replace with actual data from your backend
+const mockDonation = {
+  id: "1",
+  title: "Fresh Vegetables",
+  description: "A variety of fresh vegetables including carrots, potatoes, and onions. All vegetables are in good condition and were purchased yesterday.",
+  quantity: "5kg",
+  expiryTime: "2 hours",
+  location: "123 Main St, City",
+  image: "https://images.pexels.com/photos/3872406/pexels-photo-3872406.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
+}
+
+const EditDonationScreen: React.FC = () => {
   const navigation = useNavigation<RootNavigationProp>()
-  const [title, setTitle] = useState("")
-  const [description, setDescription] = useState("")
-  const [quantity, setQuantity] = useState("")
-  const [expiryTime, setExpiryTime] = useState("")
-  const [location, setLocation] = useState("")
-  const [image, setImage] = useState<string | null>(null)
+  const route = useRoute<RootRouteProp<"EditDonation">>()
+  const [title, setTitle] = useState(mockDonation.title)
+  const [description, setDescription] = useState(mockDonation.description)
+  const [quantity, setQuantity] = useState(mockDonation.quantity)
+  const [expiryTime, setExpiryTime] = useState(mockDonation.expiryTime)
+  const [location, setLocation] = useState(mockDonation.location)
+  const [image, setImage] = useState<string | null>(mockDonation.image)
   const [isLoading, setIsLoading] = useState(false)
   const [errors, setErrors] = useState({
     title: "",
@@ -30,7 +42,7 @@ const AddDonationScreen: React.FC = () => {
 
   const pickImage = async () => {
     Alert.alert(
-      "Add Photo",
+      "Change Photo",
       "Choose photo source",
       [
         {
@@ -121,7 +133,7 @@ const AddDonationScreen: React.FC = () => {
     } catch (error) {
       setErrors(prev => ({
         ...prev,
-        title: "Failed to create donation"
+        title: "Failed to update donation"
       }))
     } finally {
       setIsLoading(false)
@@ -141,11 +153,11 @@ const AddDonationScreen: React.FC = () => {
         >
           <Ionicons name="arrow-back" size={24} color={theme.colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.title}>Add New Donation</Text>
+        <Text style={styles.title}>Edit Donation</Text>
         <View style={{ width: 24 }} />
       </View>
       <ScrollView 
-        style={globalStyles.container}
+        style={[globalStyles.container]}
         contentContainerStyle={styles.scrollContent}
       >
         <TouchableOpacity 
@@ -241,7 +253,7 @@ const AddDonationScreen: React.FC = () => {
         </View>
 
         <Button 
-          title={isLoading ? "Creating..." : "Create Donation"} 
+          title={isLoading ? "Updating..." : "Update Donation"} 
           onPress={handleSubmit} 
           disabled={isLoading}
         />
@@ -336,4 +348,4 @@ const styles = StyleSheet.create({
   },
 })
 
-export default AddDonationScreen 
+export default EditDonationScreen 

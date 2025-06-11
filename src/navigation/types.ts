@@ -40,6 +40,8 @@ export type RootStackParamList = {
     }
   }
   DonationActivity: undefined
+  DonationList: undefined
+  EditDonation: { donationId: string }
 }
 
 export type AuthStackParamList = {
