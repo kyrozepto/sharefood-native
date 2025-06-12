@@ -1,6 +1,6 @@
-"use client"
+"use client";
 
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -11,176 +11,238 @@ import {
   SafeAreaView,
   Modal,
   Alert,
-} from "react-native"
-import { useNavigation } from "@react-navigation/native"
-import { Ionicons } from "@expo/vector-icons"
-import * as ImagePicker from "expo-image-picker"
-import type { RootNavigationProp } from "../navigation/types"
-import { globalStyles, theme } from "../utils/theme"
+} from "react-native";
+import { useNavigation } from "@react-navigation/native";
+import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
+import type { RootNavigationProp } from "../navigation/types";
+import { globalStyles, theme } from "../utils/theme";
+import { useAuth } from "../context/auth";
+import { getUserById, updateUser } from "../services/user";
+import type { User } from "../services/user";
 
 const AccountSettingsScreen: React.FC = () => {
-  const navigation = useNavigation<RootNavigationProp>()
-  const [showConfirmationModal, setShowConfirmationModal] = useState(false)
+  const navigation = useNavigation<RootNavigationProp>();
+  const { user, token } = useAuth();
+
+  const [userData, setUserData] = useState<User | null>(null);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
   const [formData, setFormData] = useState({
-    name: "Bahiskara",
-    email: "user@example.com",
-    phone: "+1234567890",
+    name: "",
+    email: "",
+    phone: "",
     password: "********",
-  })
-  const [isEditing, setIsEditing] = useState(false)
+  });
+  const [isEditing, setIsEditing] = useState(false);
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
 
-  const handleSave = () => {
-    setShowConfirmationModal(true)
-  }
-
-  const confirmSave = () => {
-    // Here you would typically update the user data in your backend
-    setIsEditing(false)
-    setShowConfirmationModal(false)
-    Alert.alert("Success", "Profile updated successfully!")
-  }
+  useEffect(() => {
+    if (user?.user_id && token) {
+      getUserById(user.user_id, token)
+        .then((data) => {
+          setUserData(data);
+          setProfileImage(data.profile_picture || null);
+          setFormData({
+            name: data.user_name || "",
+            email: data.email || "",
+            phone: data.phone || "",
+            password: "********",
+          });
+        })
+        .catch((err) => {
+          console.error("Failed to fetch user:", err.message);
+          Alert.alert("Error", "Failed to load profile data.");
+        });
+    }
+  }, [user, token]);
 
   const handleChangeProfilePicture = async () => {
-    Alert.alert(
-      "Change Profile Picture",
-      "Choose photo source",
-      [
-        {
-          text: "Camera",
-          onPress: async () => {
-            const { status } = await ImagePicker.requestCameraPermissionsAsync()
-            if (status !== "granted") {
-              Alert.alert("Permission Required", "Please grant camera permission to take photos")
-              return
-            }
-            const result = await ImagePicker.launchCameraAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.Images,
-              allowsEditing: true,
-              aspect: [1, 1],
-              quality: 1,
-            })
-            if (!result.canceled) {
-              // Here you would typically upload the image to your backend
-              // For now, we'll just show a success message
-              Alert.alert("Success", "Profile picture updated successfully!")
-            }
-          },
+    Alert.alert("Change Profile Picture", "Choose photo source", [
+      {
+        text: "Camera",
+        onPress: async () => {
+          const { status } = await ImagePicker.requestCameraPermissionsAsync();
+          if (status !== "granted") {
+            Alert.alert("Permission Required", "Camera access denied");
+            return;
+          }
+          const result = await ImagePicker.launchCameraAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 1,
+          });
+          if (!result.canceled) {
+            setProfileImage(result.assets[0].uri);
+            Alert.alert("Success", "Profile picture updated!");
+          }
         },
-        {
-          text: "Gallery",
-          onPress: async () => {
-            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
-            if (status !== "granted") {
-              Alert.alert("Permission Required", "Please grant gallery permission to select photos")
-              return
-            }
-            const result = await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.Images,
-              allowsEditing: true,
-              aspect: [1, 1],
-              quality: 1,
-            })
-            if (!result.canceled) {
-              // Here you would typically upload the image to your backend
-              // For now, we'll just show a success message
-              Alert.alert("Success", "Profile picture updated successfully!")
-            }
-          },
+      },
+      {
+        text: "Gallery",
+        onPress: async () => {
+          const { status } =
+            await ImagePicker.requestMediaLibraryPermissionsAsync();
+          if (status !== "granted") {
+            Alert.alert("Permission Required", "Gallery access denied");
+            return;
+          }
+          const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 1,
+          });
+          if (!result.canceled) {
+            setProfileImage(result.assets[0].uri);
+            Alert.alert("Success", "Profile picture updated!");
+          }
         },
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
-      ]
-    )
-  }
+      },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  };
+
+  const handleSave = () => {
+    setShowConfirmationModal(true);
+  };
+
+  const confirmSave = async () => {
+    if (!user?.user_id || !token) {
+      Alert.alert("Error", "User is not authenticated.");
+      return;
+    }
+
+    try {
+      const form = new FormData();
+      form.append("user_name", formData.name);
+      form.append("email", formData.email);
+      form.append("phone", formData.phone);
+
+      if (formData.password !== "********") {
+        form.append("password", formData.password);
+      }
+
+      if (profileImage && !profileImage.startsWith("http")) {
+        const filename = profileImage.split("/").pop()!;
+        const match = /\.(\w+)$/.exec(filename);
+        const ext = match ? match[1] : "jpg";
+
+        form.append("profile_picture", {
+          uri: profileImage,
+          name: filename,
+          type: `image/${ext}`,
+        } as any);
+      }
+
+      await updateUser(user.user_id, form, token);
+
+      setIsEditing(false);
+      setShowConfirmationModal(false);
+      Alert.alert("Success", "Profile updated successfully!");
+    } catch (error) {
+      const err = error as Error;
+      Alert.alert("Update Failed", err.message);
+    }
+  };
 
   return (
     <SafeAreaView style={globalStyles.safeArea}>
       <View style={globalStyles.container}>
+        {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color={theme.colors.textPrimary} />
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}
+          >
+            <Ionicons
+              name="arrow-back"
+              size={24}
+              color={theme.colors.textPrimary}
+            />
           </TouchableOpacity>
           <Text style={globalStyles.sectionHeader}>Account Settings</Text>
         </View>
 
-        {/* Profile Picture */}
+        {/* Profile Image */}
         <View style={styles.profileImageContainer}>
-          <Image source={require("../../assets/images/profile_image.jpg")} style={styles.profileImage} />
-          <TouchableOpacity style={styles.editImageButton} onPress={handleChangeProfilePicture} activeOpacity={0.7}>
-            <Ionicons name="camera" size={20} color={theme.colors.textPrimary} />
+          <Image
+            source={
+              profileImage
+                ? { uri: profileImage }
+                : require("../../assets/images/profile_picture.jpg")
+            }
+            style={styles.profileImage}
+          />
+          <TouchableOpacity
+            style={styles.editImageButton}
+            onPress={handleChangeProfilePicture}
+          >
+            <Ionicons
+              name="camera"
+              size={20}
+              color={theme.colors.textPrimary}
+            />
           </TouchableOpacity>
         </View>
 
-        {/* Form Fields */}
+        {/* Form */}
         <View style={styles.formContainer}>
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Name</Text>
-            <TextInput
-              style={styles.input}
-              value={formData.name}
-              onChangeText={(text) => setFormData({ ...formData, name: text })}
-              editable={isEditing}
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email</Text>
-            <TextInput
-              style={styles.input}
-              value={formData.email}
-              onChangeText={(text) => setFormData({ ...formData, email: text })}
-              editable={isEditing}
-              keyboardType="email-address"
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Phone Number</Text>
-            <TextInput
-              style={styles.input}
-              value={formData.phone}
-              onChangeText={(text) => setFormData({ ...formData, phone: text })}
-              editable={isEditing}
-              keyboardType="phone-pad"
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Password</Text>
-            <TextInput
-              style={styles.input}
-              value={formData.password}
-              onChangeText={(text) => setFormData({ ...formData, password: text })}
-              editable={isEditing}
-              secureTextEntry
-            />
-          </View>
+          {["name", "email", "phone", "password"].map((field, i) => (
+            <View style={styles.inputGroup} key={i}>
+              <Text style={styles.label}>
+                {field.charAt(0).toUpperCase() + field.slice(1)}
+              </Text>
+              <TextInput
+                style={styles.input}
+                value={formData[field as keyof typeof formData]}
+                onChangeText={(text) =>
+                  setFormData((prev) => ({ ...prev, [field]: text }))
+                }
+                editable={isEditing}
+                secureTextEntry={field === "password"}
+                keyboardType={
+                  field === "email"
+                    ? "email-address"
+                    : field === "phone"
+                    ? "phone-pad"
+                    : "default"
+                }
+              />
+            </View>
+          ))}
         </View>
 
-        {/* Action Buttons */}
+        {/* Buttons */}
         <View style={styles.buttonContainer}>
           {isEditing ? (
             <>
-              <TouchableOpacity style={[styles.button, styles.saveButton]} onPress={handleSave}>
+              <TouchableOpacity
+                style={[styles.button, styles.saveButton]}
+                onPress={handleSave}
+              >
                 <Text style={styles.buttonText}>Save Changes</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.button, styles.cancelButton]}
                 onPress={() => setIsEditing(false)}
               >
-                <Text style={[styles.buttonText, styles.cancelButtonText]}>Cancel</Text>
+                <Text style={[styles.buttonText, styles.cancelButtonText]}>
+                  Cancel
+                </Text>
               </TouchableOpacity>
             </>
           ) : (
-            <TouchableOpacity style={[styles.button, styles.editButton]} onPress={() => setIsEditing(true)}>
+            <TouchableOpacity
+              style={[styles.button, styles.editButton]}
+              onPress={() => setIsEditing(true)}
+            >
               <Text style={styles.buttonText}>Edit Profile</Text>
             </TouchableOpacity>
           )}
         </View>
 
-        {/* Confirmation Modal */}
+        {/* Modal */}
         <Modal
           visible={showConfirmationModal}
           transparent
@@ -190,7 +252,9 @@ const AccountSettingsScreen: React.FC = () => {
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
               <Text style={styles.modalTitle}>Confirm Changes</Text>
-              <Text style={styles.modalText}>Are you sure you want to save these changes?</Text>
+              <Text style={styles.modalText}>
+                Are you sure you want to save these changes?
+              </Text>
               <View style={styles.modalButtons}>
                 <TouchableOpacity
                   style={[styles.modalButton, styles.confirmButton]}
@@ -202,7 +266,14 @@ const AccountSettingsScreen: React.FC = () => {
                   style={[styles.modalButton, styles.cancelModalButton]}
                   onPress={() => setShowConfirmationModal(false)}
                 >
-                  <Text style={[styles.modalButtonText, styles.cancelModalButtonText]}>Cancel</Text>
+                  <Text
+                    style={[
+                      styles.modalButtonText,
+                      styles.cancelModalButtonText,
+                    ]}
+                  >
+                    Cancel
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -210,8 +281,8 @@ const AccountSettingsScreen: React.FC = () => {
         </Modal>
       </View>
     </SafeAreaView>
-  )
-}
+  );
+};
 
 const styles = StyleSheet.create({
   header: {
@@ -347,6 +418,6 @@ const styles = StyleSheet.create({
   cancelModalButtonText: {
     color: theme.colors.accent,
   },
-})
+});
 
-export default AccountSettingsScreen 
+export default AccountSettingsScreen;

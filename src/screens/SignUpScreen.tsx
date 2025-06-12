@@ -1,25 +1,40 @@
-"use client"
+"use client";
 
-import type React from "react"
-import { useState } from "react"
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, KeyboardAvoidingView, Platform } from "react-native"
-import { useNavigation } from "@react-navigation/native"
-import { Ionicons } from "@expo/vector-icons"
-import type { AuthNavigationProp } from "../navigation/types"
-import { globalStyles, theme } from "../utils/theme"
-import Button from "../components/Button"
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  TouchableOpacity,
+  SafeAreaView,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  Alert,
+} from "react-native";
+import { useNavigation } from "@react-navigation/native";
+import { Ionicons } from "@expo/vector-icons";
+import type { RootStackParamList } from "../navigation/types";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { globalStyles, theme } from "../utils/theme";
+import Button from "../components/Button";
+import { registerUser } from "../services/auth";
+import { useAuth } from "../context/auth";
 
-type UserRole = "donor" | "recipient"
+type UserRole = "donor" | "recipient";
 
 const SignUpScreen: React.FC = () => {
-  const navigation = useNavigation<AuthNavigationProp>()
-  const [name, setName] = useState("")
-  const [email, setEmail] = useState("")
-  const [phone, setPhone] = useState("")
-  const [password, setPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-  const [role, setRole] = useState<UserRole | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
+  const navigation =
+    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { login } = useAuth();
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [role, setRole] = useState<UserRole | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState({
     name: "",
     email: "",
@@ -27,51 +42,91 @@ const SignUpScreen: React.FC = () => {
     password: "",
     confirmPassword: "",
     role: "",
-  })
+  });
 
   const handleSignUp = async () => {
-    const newErrors = { name: "", email: "", phone: "", password: "", confirmPassword: "", role: "" }
+    const newErrors = {
+      name: "",
+      email: "",
+      phone: "",
+      password: "",
+      confirmPassword: "",
+      role: "",
+    };
 
-    if (!name.trim()) newErrors.name = "Name is required"
-    if (!email.trim()) newErrors.email = "Email is required"
-    else if (!/\S+@\S+\.\S+/.test(email)) newErrors.email = "Please enter a valid email"
-    if (!phone.trim()) newErrors.phone = "Phone number is required"
-    if (!password) newErrors.password = "Password is required"
-    else if (password.length < 8) newErrors.password = "Password must be at least 8 characters"
-    if (!confirmPassword) newErrors.confirmPassword = "Please confirm your password"
-    if (password !== confirmPassword) newErrors.confirmPassword = "Passwords do not match"
-    if (!role) newErrors.role = "Please select a role"
-    
-    setErrors(newErrors)
-    if (Object.values(newErrors).some(error => error)) return
+    if (!name.trim()) newErrors.name = "Name is required";
+    if (!email.trim()) newErrors.email = "Email is required";
+    else if (!/\S+@\S+\.\S+/.test(email))
+      newErrors.email = "Please enter a valid email";
+    if (!phone.trim()) newErrors.phone = "Phone number is required";
+    if (!password) newErrors.password = "Password is required";
+    else if (password.length < 8)
+      newErrors.password = "Password must be at least 8 characters";
+    if (!confirmPassword)
+      newErrors.confirmPassword = "Please confirm your password";
+    else if (password !== confirmPassword)
+      newErrors.confirmPassword = "Passwords do not match";
+    if (!role) newErrors.role = "Please select a role";
 
-    setIsLoading(true)
+    setErrors(newErrors);
+    if (Object.values(newErrors).some((error) => error)) return;
+
+    setIsLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-      navigation.navigate("Main")
+      console.log("[SignUp] Sending request to registerUser with:", {
+        user_name: name,
+        email,
+        phone,
+        password,
+        user_type: role,
+      });
+      await registerUser({
+        user_name: name,
+        email,
+        phone,
+        password,
+        user_type: role!,
+      });
+
+      // Auto-login after registration
+      await login(email, password);
+
+      // Navigate to main app screen
+      navigation.reset({
+        index: 0,
+        routes: [{ name: "Main" }],
+      });
     } catch (error) {
-      setErrors(prev => ({ ...prev, email: "An error occurred during sign up" }))
+      const err = error as Error;
+      Alert.alert("Registration Failed", err.message);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const clearError = (field: keyof typeof errors) => {
-    setErrors(prev => ({ ...prev, [field]: "" }))
-  }
+    setErrors((prev) => ({ ...prev, [field]: "" }));
+  };
 
   return (
     <SafeAreaView style={globalStyles.safeArea}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color={theme.colors.textPrimary} />
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons
+            name="arrow-back"
+            size={24}
+            color={theme.colors.textPrimary}
+          />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Create Account</Text>
         <View style={{ width: 40 }} />
       </View>
 
-      <KeyboardAvoidingView 
-        style={{ flex: 1 }} 
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <ScrollView
@@ -80,7 +135,9 @@ const SignUpScreen: React.FC = () => {
           showsVerticalScrollIndicator={false}
         >
           <Text style={styles.title}>Join ShareFood</Text>
-          <Text style={styles.subtitle}>Help reduce food waste and make a difference</Text>
+          <Text style={styles.subtitle}>
+            Help reduce food waste and make a difference
+          </Text>
 
           <View style={styles.inputContainer}>
             <TextInput
@@ -88,11 +145,16 @@ const SignUpScreen: React.FC = () => {
               placeholder="Full Name"
               placeholderTextColor={theme.colors.textTertiary}
               value={name}
-              onChangeText={(value) => { setName(value); clearError("name") }}
+              onChangeText={(value) => {
+                setName(value);
+                clearError("name");
+              }}
               autoCapitalize="words"
               accessibilityLabel="Name input"
             />
-            {errors.name ? <Text style={styles.errorText}>{errors.name}</Text> : null}
+            {errors.name ? (
+              <Text style={styles.errorText}>{errors.name}</Text>
+            ) : null}
           </View>
 
           <View style={styles.inputContainer}>
@@ -101,12 +163,17 @@ const SignUpScreen: React.FC = () => {
               placeholder="Email"
               placeholderTextColor={theme.colors.textTertiary}
               value={email}
-              onChangeText={(value) => { setEmail(value); clearError("email") }}
+              onChangeText={(value) => {
+                setEmail(value);
+                clearError("email");
+              }}
               keyboardType="email-address"
               autoCapitalize="none"
               accessibilityLabel="Email input"
             />
-            {errors.email ? <Text style={styles.errorText}>{errors.email}</Text> : null}
+            {errors.email ? (
+              <Text style={styles.errorText}>{errors.email}</Text>
+            ) : null}
           </View>
 
           <View style={styles.inputContainer}>
@@ -115,11 +182,16 @@ const SignUpScreen: React.FC = () => {
               placeholder="Phone Number"
               placeholderTextColor={theme.colors.textTertiary}
               value={phone}
-              onChangeText={(value) => { setPhone(value); clearError("phone") }}
+              onChangeText={(value) => {
+                setPhone(value);
+                clearError("phone");
+              }}
               keyboardType="phone-pad"
               accessibilityLabel="Phone number input"
             />
-            {errors.phone ? <Text style={styles.errorText}>{errors.phone}</Text> : null}
+            {errors.phone ? (
+              <Text style={styles.errorText}>{errors.phone}</Text>
+            ) : null}
           </View>
 
           <View style={styles.inputContainer}>
@@ -128,56 +200,131 @@ const SignUpScreen: React.FC = () => {
               placeholder="Password"
               placeholderTextColor={theme.colors.textTertiary}
               value={password}
-              onChangeText={(value) => { setPassword(value); clearError("password") }}
+              onChangeText={(value) => {
+                setPassword(value);
+                clearError("password");
+              }}
               secureTextEntry
               accessibilityLabel="Password input"
             />
-            {errors.password ? <Text style={styles.errorText}>{errors.password}</Text> : null}
+            {errors.password ? (
+              <Text style={styles.errorText}>{errors.password}</Text>
+            ) : null}
           </View>
 
           <View style={styles.inputContainer}>
             <TextInput
-              style={[styles.input, errors.confirmPassword ? styles.inputError : null]}
+              style={[
+                styles.input,
+                errors.confirmPassword ? styles.inputError : null,
+              ]}
               placeholder="Confirm Password"
               placeholderTextColor={theme.colors.textTertiary}
               value={confirmPassword}
-              onChangeText={(value) => { setConfirmPassword(value); clearError("confirmPassword") }}
+              onChangeText={(value) => {
+                setConfirmPassword(value);
+                clearError("confirmPassword");
+              }}
               secureTextEntry
               accessibilityLabel="Confirm password input"
             />
-            {errors.confirmPassword ? <Text style={styles.errorText}>{errors.confirmPassword}</Text> : null}
+            {errors.confirmPassword ? (
+              <Text style={styles.errorText}>{errors.confirmPassword}</Text>
+            ) : null}
           </View>
 
           <Text style={styles.roleTitle}>I want to:</Text>
           <View style={styles.roleContainer}>
             <TouchableOpacity
-              style={[ styles.roleButton, role === "donor" && styles.roleButtonActive, errors.role && !role && styles.roleButtonError ]}
-              onPress={() => { setRole("donor"); clearError("role") }}
+              style={[
+                styles.roleButton,
+                role === "donor" && styles.roleButtonActive,
+                errors.role && !role && styles.roleButtonError,
+              ]}
+              onPress={() => {
+                setRole("donor");
+                clearError("role");
+              }}
             >
-              <Ionicons name="restaurant" size={24} color={role === "donor" ? theme.colors.accent : theme.colors.textPrimary} />
-              <Text style={[ styles.roleText, role === "donor" && styles.roleTextActive ]}>Donate{"\n"}Food</Text>
+              <Ionicons
+                name="restaurant"
+                size={24}
+                color={
+                  role === "donor"
+                    ? theme.colors.accent
+                    : theme.colors.textPrimary
+                }
+              />
+              <Text
+                style={[
+                  styles.roleText,
+                  role === "donor" && styles.roleTextActive,
+                ]}
+              >
+                Donate{"\n"}Food
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[ styles.roleButton, role === "recipient" && styles.roleButtonActive, errors.role && !role && styles.roleButtonError ]}
-              onPress={() => { setRole("recipient"); clearError("role") }}
+              style={[
+                styles.roleButton,
+                role === "recipient" && styles.roleButtonActive,
+                errors.role && !role && styles.roleButtonError,
+              ]}
+              onPress={() => {
+                setRole("recipient");
+                clearError("role");
+              }}
             >
-              <Ionicons name="people" size={24} color={role === "recipient" ? theme.colors.accent : theme.colors.textPrimary} />
-              <Text style={[ styles.roleText, role === "recipient" && styles.roleTextActive ]}>Receive{"\n"}Food</Text>
+              <Ionicons
+                name="people"
+                size={24}
+                color={
+                  role === "recipient"
+                    ? theme.colors.accent
+                    : theme.colors.textPrimary
+                }
+              />
+              <Text
+                style={[
+                  styles.roleText,
+                  role === "recipient" && styles.roleTextActive,
+                ]}
+              >
+                Receive{"\n"}Food
+              </Text>
             </TouchableOpacity>
           </View>
-          {errors.role ? <Text style={styles.errorText}>{errors.role}</Text> : null}
+          {errors.role ? (
+            <Text style={styles.errorText}>{errors.role}</Text>
+          ) : null}
 
-          <Button title={isLoading ? "Creating Account..." : "Create Account"} onPress={handleSignUp} disabled={isLoading} />
+          <Button
+            title={isLoading ? "Creating Account..." : "Create Account"}
+            onPress={handleSignUp}
+            disabled={isLoading}
+          />
 
           <View style={styles.socialButtons}>
             <TouchableOpacity style={styles.socialButton} activeOpacity={0.7}>
-              <Ionicons name="logo-google" size={28} color={theme.colors.textPrimary} />
+              <Ionicons
+                name="logo-google"
+                size={28}
+                color={theme.colors.textPrimary}
+              />
             </TouchableOpacity>
             <TouchableOpacity style={styles.socialButton} activeOpacity={0.7}>
-              <Ionicons name="logo-facebook" size={28} color={theme.colors.textPrimary} />
+              <Ionicons
+                name="logo-facebook"
+                size={28}
+                color={theme.colors.textPrimary}
+              />
             </TouchableOpacity>
             <TouchableOpacity style={styles.socialButton} activeOpacity={0.7}>
-              <Ionicons name="logo-apple" size={28} color={theme.colors.textPrimary} />
+              <Ionicons
+                name="logo-apple"
+                size={28}
+                color={theme.colors.textPrimary}
+              />
             </TouchableOpacity>
           </View>
 
@@ -190,8 +337,8 @@ const SignUpScreen: React.FC = () => {
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
-  )
-}
+  );
+};
 
 const styles = StyleSheet.create({
   header: {
@@ -226,7 +373,7 @@ const styles = StyleSheet.create({
     fontFamily: theme.font.family.bold,
     fontSize: theme.font.size.xxl,
     marginBottom: theme.spacing.sm,
-    textAlign: 'center',
+    textAlign: "center",
   },
   subtitle: {
     color: theme.colors.textSecondary,
@@ -298,7 +445,7 @@ const styles = StyleSheet.create({
     fontFamily: theme.font.family.medium,
     fontSize: theme.font.size.md,
     marginLeft: theme.spacing.sm,
-    textAlign: 'center',
+    textAlign: "center",
   },
   roleTextActive: {
     color: theme.colors.accent,
@@ -334,6 +481,6 @@ const styles = StyleSheet.create({
     fontFamily: theme.font.family.medium,
     fontSize: theme.font.size.md,
   },
-})
+});
 
-export default SignUpScreen
+export default SignUpScreen;
