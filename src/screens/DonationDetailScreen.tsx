@@ -1,128 +1,186 @@
-"use client"
+"use client";
 
-import type React from "react"
-import { useState } from "react"
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Image, Modal } from "react-native"
-import { useNavigation, useRoute } from "@react-navigation/native"
-import { Ionicons } from "@expo/vector-icons"
-import type { RootNavigationProp, RootRouteProp } from "../navigation/types"
-import { globalStyles, theme } from "../utils/theme"
-import Button from "../components/Button"
+import React, { useEffect, useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  SafeAreaView,
+  ScrollView,
+  Image,
+  ActivityIndicator,
+} from "react-native";
+import { useNavigation, useRoute } from "@react-navigation/native";
+import { Ionicons } from "@expo/vector-icons";
 
-// Mock data
-const mockDonation = {
-  id: "1",
-  title: "Fresh Vegetables",
-  description: "A variety of fresh vegetables including carrots, potatoes, and onions. All vegetables are in good condition and were purchased yesterday.",
-  quantity: "5kg",
-  expiryTime: "2 hours",
-  location: "123 Main St, City",
-  distance: "2.5km away",
-  donor: {
-    name: "John Doe",
-    rating: 4.8,
-    totalDonations: 15,
-  },
-  image: "https://images.pexels.com/photos/3872406/pexels-photo-3872406.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
-  // ...
-}
+import type { RootNavigationProp, RootRouteProp } from "../navigation/types";
+import { globalStyles, theme } from "../utils/theme";
+import Button from "../components/Button";
+import { getDonationById } from "../services/donation";
+import { getRequests } from "../services/request";
+import type { Donation } from "../interfaces/donationInterface";
+import type { RequestItem } from "../interfaces/requestInterface";
 
 const DonationDetailScreen: React.FC = () => {
-  const navigation = useNavigation<RootNavigationProp>()
-  const [isRequestModalVisible, setIsRequestModalVisible] = useState(false)
-  const [requestQuantity, setRequestQuantity] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState("")
+  const navigation = useNavigation<RootNavigationProp>();
+  const route = useRoute<RootRouteProp<"DonationDetail">>();
+  const { donationId } = route.params;
 
-  const handleRequest = async () => {
-    if (!requestQuantity.trim()) {
-      setError("Please enter the quantity you want")
-      return
-    }
-    setIsLoading(true)
-    setError("")
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-      setIsRequestModalVisible(false)
-      navigation.goBack()
-    } catch (error) {
-      setError("Failed to submit request. Please try again.")
-    } finally {
-      setIsLoading(false)
-    }
+  const [donation, setDonation] = useState<Donation | null>(null);
+  const [confirmedRequest, setConfirmedRequest] = useState<RequestItem | null>(
+    null
+  );
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const fetchDonationAndRequest = async () => {
+      try {
+        const data = await getDonationById(Number(donationId));
+        setDonation(data);
+
+        const allRequests = await getRequests();
+        const confirmed = allRequests.find(
+          (req) =>
+            req.donation_id === Number(donationId) &&
+            req.request_status === "confirmed"
+        );
+        setConfirmedRequest(confirmed || null);
+      } catch (err) {
+        console.error(err);
+        setError("Failed to load donation or request data.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDonationAndRequest();
+  }, [donationId]);
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  };
+
+  const getTimeLeftRoundedHours = (pickupTime: string) => {
+    const now = new Date();
+    const pickup = new Date(pickupTime);
+    const diff = pickup.getTime() - now.getTime();
+
+    if (diff <= 0) return "Expired";
+
+    const hoursLeft = Math.ceil(diff / (1000 * 60 * 60)); // Round up to nearest hour
+    return `${hoursLeft} hour${hoursLeft > 1 ? "s" : ""} left`;
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={globalStyles.safeArea}>
+        <ActivityIndicator size="large" color={theme.colors.accent} />
+      </SafeAreaView>
+    );
+  }
+
+  if (!donation) {
+    return (
+      <SafeAreaView style={globalStyles.safeArea}>
+        <Text style={{ color: theme.colors.textSecondary }}>{error}</Text>
+      </SafeAreaView>
+    );
   }
 
   return (
     <SafeAreaView style={globalStyles.safeArea}>
-      {/* The header is now OUTSIDE the ScrollView */}
       <View style={styles.header}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Ionicons name="arrow-back" size={24} color={theme.colors.textPrimary} />
+          <Ionicons
+            name="arrow-back"
+            size={24}
+            color={theme.colors.textPrimary}
+          />
         </TouchableOpacity>
         <Text style={styles.title}>Donation Details</Text>
         <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.contentContainer}
       >
-        <Image source={{ uri: mockDonation.image }} style={styles.image} />
+        <Image
+          source={{
+            uri: donation.donation_picture || "https://via.placeholder.com/300",
+          }}
+          style={styles.image}
+        />
 
-        <View>
-          <Text style={styles.donationTitle}>{mockDonation.title}</Text>
-          
-          <View style={styles.metaContainer}>
-            <View style={styles.metaItem}>
-              <Ionicons name="restaurant" size={20} color={theme.colors.textSecondary} />
-              <Text style={styles.metaText}>{mockDonation.quantity}</Text>
-            </View>
-            <View style={styles.metaItem}>
-              <Ionicons name="time" size={20} color={theme.colors.textSecondary} />
-              <Text style={styles.metaText}>{mockDonation.expiryTime}</Text>
-            </View>
-            <View style={styles.metaItem}>
-              <Ionicons name="location" size={20} color={theme.colors.textSecondary} />
-              <Text style={styles.metaText}>{mockDonation.distance}</Text>
-            </View>
-          </View>
+        <Text style={styles.donationTitle}>{donation.title}</Text>
 
-          <Text style={styles.sectionTitle}>Description</Text>
-          <Text style={styles.description}>{mockDonation.description}</Text>
-
-          <Text style={styles.sectionTitle}>Donor Information</Text>
-          <View style={styles.donorInfo}>
-            <View style={styles.donorHeader}>
-              <Text style={styles.donorName}>{mockDonation.donor.name}</Text>
-              <View style={styles.ratingContainer}>
-                <Ionicons name="star" size={16} color={theme.colors.accent} />
-                <Text style={styles.ratingText}>{mockDonation.donor.rating}</Text>
-              </View>
-            </View>
-            <Text style={styles.donorStats}>
-              {mockDonation.donor.totalDonations} donations made
+        <View style={styles.metaGrid}>
+          <View style={styles.metaBox}>
+            <Ionicons name="restaurant" size={20} color={theme.colors.accent} />
+            <Text style={styles.metaText}>
+              {donation.quantity_value} {donation.quantity_unit}
             </Text>
           </View>
 
-          <Text style={styles.sectionTitle}>Location</Text>
-          <Text style={styles.location}>{mockDonation.location}</Text>
+          {donation.expiry_date && (
+            <View style={styles.metaBox}>
+              <Ionicons name="time" size={20} color={theme.colors.accent} />
+              <Text style={styles.metaText}>
+                {formatDate(donation.expiry_date)}
+              </Text>
+            </View>
+          )}
 
-          <Button 
-            title="Request Donation" 
-            onPress={() => navigation.navigate("RequestForm", { donation: mockDonation })}
-          />
+          <View style={styles.metaBox}>
+            <Ionicons name="location" size={20} color={theme.colors.accent} />
+            <Text style={styles.metaText}>{donation.location}</Text>
+          </View>
+
+          {confirmedRequest && (
+            <View style={styles.metaBox}>
+              <Ionicons name="alarm" size={20} color={theme.colors.accent} />
+              <Text style={styles.metaText}>
+                {getTimeLeftRoundedHours(confirmedRequest.pickup_time)}
+              </Text>
+            </View>
+          )}
         </View>
+
+        <Text style={styles.sectionTitle}>Description</Text>
+        <Text style={styles.description}>
+          {donation.description || "No additional description provided."}
+        </Text>
+
+        <Text style={styles.sectionTitle}>Status</Text>
+        <View style={styles.statusBadge}>
+          <Text style={styles.statusText}>
+            {donation.donation_status.charAt(0).toUpperCase() +
+              donation.donation_status.slice(1)}
+          </Text>
+        </View>
+
+        <Button
+          title="Request Donation"
+          onPress={() => navigation.navigate("RequestForm", { donation })}
+        />
       </ScrollView>
     </SafeAreaView>
-  )
-}
+  );
+};
 
 const styles = StyleSheet.create({
   contentContainer: {
-    paddingBottom: 40, // Space for bottom navbar
+    paddingBottom: 40,
   },
   scrollView: {
     paddingHorizontal: theme.spacing.lg,
@@ -161,14 +219,20 @@ const styles = StyleSheet.create({
     fontSize: theme.font.size.xl,
     marginBottom: theme.spacing.md,
   },
-  metaContainer: {
+  metaGrid: {
     flexDirection: "row",
+    flexWrap: "wrap",
     justifyContent: "space-between",
     marginBottom: theme.spacing.xl,
   },
-  metaItem: {
+  metaBox: {
+    width: "48%",
     flexDirection: "row",
     alignItems: "center",
+    backgroundColor: theme.colors.backgroundSecondary,
+    padding: theme.spacing.sm,
+    borderRadius: 12,
+    marginBottom: theme.spacing.md,
   },
   metaText: {
     color: theme.colors.textSecondary,
@@ -189,44 +253,20 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.xl,
     lineHeight: 24,
   },
-  donorInfo: {
-    backgroundColor: theme.colors.backgroundSecondary,
-    borderRadius: 16,
-    padding: theme.spacing.md,
+  statusBadge: {
+    alignSelf: "flex-start",
+    backgroundColor: theme.colors.accent,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.xs,
+    borderRadius: 20,
     marginBottom: theme.spacing.xl,
   },
-  donorHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: theme.spacing.xs,
-  },
-  donorName: {
-    color: theme.colors.textPrimary,
+  statusText: {
+    color: "#fff",
     fontFamily: theme.font.family.bold,
-    fontSize: theme.font.size.md,
-  },
-  ratingContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  ratingText: {
-    color: theme.colors.accent,
-    fontFamily: theme.font.family.medium,
-    fontSize: theme.font.size.md,
-    marginLeft: theme.spacing.xs,
-  },
-  donorStats: {
-    color: theme.colors.textSecondary,
-    fontFamily: theme.font.family.regular,
     fontSize: theme.font.size.sm,
+    textTransform: "capitalize",
   },
-  location: {
-    color: theme.colors.textSecondary,
-    fontFamily: theme.font.family.regular,
-    fontSize: theme.font.size.md,
-    marginBottom: theme.spacing.xl,
-  },
-})
+});
 
-export default DonationDetailScreen
+export default DonationDetailScreen;

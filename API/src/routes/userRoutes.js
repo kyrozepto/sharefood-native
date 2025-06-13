@@ -4,11 +4,10 @@ const authenticateToken = require("../middlewares/auth");
 const userController = require("../controllers/userController");
 const multer = require("multer");
 
-// Configure multer for memory storage (since you're using ImageKit)
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit
+    fileSize: 10 * 1024 * 1024,
   },
   fileFilter: (req, file, cb) => {
     console.log("Multer file filter - File details:", {
@@ -17,7 +16,6 @@ const upload = multer({
       mimetype: file.mimetype,
     });
 
-    // Check if file is an image
     if (file.mimetype.startsWith("image/")) {
       cb(null, true);
     } else {
@@ -26,26 +24,19 @@ const upload = multer({
   },
 });
 
-// Add middleware to log all requests
 router.use((req, res, next) => {
-  console.log(`${req.method} ${req.path} - Headers:`, req.headers);
   next();
 });
 
-// IMPORTANT: Put /me route BEFORE /:id route
 router.get("/me", authenticateToken, userController.getCurrentUser);
 router.get("/", userController.getUsers);
 router.get("/:id", userController.getUserById);
 router.post("/", upload.none(), userController.createUser);
 
-// Updated PUT route with better error handling
 router.put(
   "/:id",
   authenticateToken,
   (req, res, next) => {
-    console.log("=== PUT REQUEST RECEIVED ===");
-    console.log("URL:", req.url);
-    console.log("Content-Type:", req.headers["content-type"]);
     next();
   },
   upload.single("profile_picture"),

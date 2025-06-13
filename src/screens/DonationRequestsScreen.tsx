@@ -1,13 +1,21 @@
-"use client"
+"use client";
 
-import type React from "react"
-import { useState } from "react"
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Image } from "react-native"
-import { useNavigation, useRoute } from "@react-navigation/native"
-import { Ionicons } from "@expo/vector-icons"
-import type { RootNavigationProp, RootRouteProp } from "../navigation/types"
-import { globalStyles, theme } from "../utils/theme"
-import Button from "../components/Button"
+import type React from "react";
+import { useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  SafeAreaView,
+  ScrollView,
+  Image,
+} from "react-native";
+import { useNavigation, useRoute } from "@react-navigation/native";
+import { Ionicons } from "@expo/vector-icons";
+import type { RootNavigationProp, RootRouteProp } from "../navigation/types";
+import { globalStyles, theme } from "../utils/theme";
+import Button from "../components/Button";
 
 // Mock data - replace with actual data from your backend
 const mockRequests = [
@@ -37,34 +45,41 @@ const mockRequests = [
     message: "I'll be there in 30 minutes",
     timeRequested: "5 minutes ago",
   },
-]
+];
 
 const DonationRequestsScreen: React.FC = () => {
-  const navigation = useNavigation<RootNavigationProp>()
-  const route = useRoute<RootRouteProp<"DonationRequests">>()
-  const [isLoading, setIsLoading] = useState(false)
+  const navigation = useNavigation<RootNavigationProp>();
+  const route = useRoute<RootRouteProp<"DonationRequests">>();
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleRequest = async (requestId: string, action: "approve" | "reject") => {
-    setIsLoading(true)
+  const handleRequest = async (
+    requestId: string,
+    action: "approve" | "reject"
+  ) => {
+    setIsLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       // Handle the request action here
     } catch (error) {
       // Handle error
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <SafeAreaView style={globalStyles.safeArea}>
       <ScrollView style={globalStyles.container}>
         <View style={styles.header}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.backButton}
             onPress={() => navigation.goBack()}
           >
-            <Ionicons name="arrow-back" size={24} color={theme.colors.textPrimary} />
+            <Ionicons
+              name="arrow-back"
+              size={24}
+              color={theme.colors.textPrimary}
+            />
           </TouchableOpacity>
           <Text style={styles.title}>Donation Requests</Text>
           <View style={{ width: 24 }} />
@@ -74,12 +89,23 @@ const DonationRequestsScreen: React.FC = () => {
           {mockRequests.map((request) => (
             <View key={request.id} style={styles.requestCard}>
               <View style={styles.recipientInfo}>
-                <Image source={{ uri: request.recipient.image }} style={styles.recipientImage} />
+                <Image
+                  source={{ uri: request.recipient.image }}
+                  style={styles.recipientImage}
+                />
                 <View style={styles.recipientDetails}>
-                  <Text style={styles.recipientName}>{request.recipient.name}</Text>
+                  <Text style={styles.recipientName}>
+                    {request.recipient.name}
+                  </Text>
                   <View style={styles.ratingContainer}>
-                    <Ionicons name="star" size={16} color={theme.colors.accent} />
-                    <Text style={styles.ratingText}>{request.recipient.rating}</Text>
+                    <Ionicons
+                      name="star"
+                      size={16}
+                      color={theme.colors.accent}
+                    />
+                    <Text style={styles.ratingText}>
+                      {request.recipient.rating}
+                    </Text>
                     <Text style={styles.requestCount}>
                       ({request.recipient.totalRequests} requests)
                     </Text>
@@ -89,11 +115,21 @@ const DonationRequestsScreen: React.FC = () => {
 
               <View style={styles.requestDetails}>
                 <View style={styles.detailRow}>
-                  <Ionicons name="restaurant" size={20} color={theme.colors.textSecondary} />
-                  <Text style={styles.detailText}>Requesting {request.quantity}</Text>
+                  <Ionicons
+                    name="restaurant"
+                    size={20}
+                    color={theme.colors.textSecondary}
+                  />
+                  <Text style={styles.detailText}>
+                    Requesting {request.quantity}
+                  </Text>
                 </View>
                 <View style={styles.detailRow}>
-                  <Ionicons name="time" size={20} color={theme.colors.textSecondary} />
+                  <Ionicons
+                    name="time"
+                    size={20}
+                    color={theme.colors.textSecondary}
+                  />
                   <Text style={styles.detailText}>{request.timeRequested}</Text>
                 </View>
                 <Text style={styles.message}>{request.message}</Text>
@@ -101,23 +137,28 @@ const DonationRequestsScreen: React.FC = () => {
 
               {request.status === "pending" ? (
                 <View style={styles.actionButtons}>
-                  <Button 
-                    title="Approve" 
+                  <Button
+                    title="Approve"
                     onPress={() => handleRequest(request.id, "approve")}
                     variant="secondary"
                   />
-                  <Button 
-                    title="Reject" 
+                  <Button
+                    title="Reject"
                     onPress={() => handleRequest(request.id, "reject")}
                   />
                 </View>
               ) : (
                 <View style={styles.statusContainer}>
-                  <Text style={[
-                    styles.statusText,
-                    request.status === "approved" ? styles.approvedText : styles.rejectedText
-                  ]}>
-                    {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                  <Text
+                    style={[
+                      styles.statusText,
+                      request.status === "approved"
+                        ? styles.approvedText
+                        : styles.rejectedText,
+                    ]}
+                  >
+                    {request.status.charAt(0).toUpperCase() +
+                      request.status.slice(1)}
                   </Text>
                 </View>
               )}
@@ -126,8 +167,8 @@ const DonationRequestsScreen: React.FC = () => {
         </View>
       </ScrollView>
     </SafeAreaView>
-  )
-}
+  );
+};
 
 const styles = StyleSheet.create({
   header: {
@@ -235,6 +276,6 @@ const styles = StyleSheet.create({
   rejectedText: {
     color: theme.colors.error,
   },
-})
+});
 
-export default DonationRequestsScreen 
+export default DonationRequestsScreen;

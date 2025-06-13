@@ -77,10 +77,6 @@ class User {
   }
 
   static updateUser(user_id, data, callback) {
-    console.log("=== USER MODEL UPDATE ===");
-    console.log("User ID to update:", user_id);
-    console.log("Data to update:", data);
-
     const updates = [];
     const params = [];
 
@@ -88,12 +84,10 @@ class User {
       if (data[key] !== undefined && data[key] !== null) {
         updates.push(`${key} = ?`);
         params.push(data[key]);
-        console.log(`Adding to update: ${key} = ${data[key]}`);
       }
     }
 
     if (updates.length === 0) {
-      console.log("No valid fields to update");
       return callback(null, {
         affectedRows: 0,
         message: "No fields to update",
@@ -103,18 +97,11 @@ class User {
     params.push(user_id);
     const query = `UPDATE users SET ${updates.join(", ")} WHERE user_id = ?`;
 
-    console.log("Generated SQL query:", query);
-    console.log("Query parameters:", params);
-
     db.query(query, params, (err, result) => {
       if (err) {
         console.error("Database query error:", err);
         return callback(err, null);
       }
-
-      console.log("Database query result:", result);
-      console.log("Affected rows:", result.affectedRows);
-      console.log("Changed rows:", result.changedRows);
 
       return callback(null, result);
     });

@@ -1,46 +1,27 @@
-"use client"
+"use client";
 
-import type React from "react"
-import { useState, useEffect } from "react"
-import { View, Text, ScrollView, StyleSheet, TextInput, SafeAreaView, TouchableOpacity, Image, Modal } from "react-native"
-import { useNavigation } from "@react-navigation/native"
-import { Ionicons } from "@expo/vector-icons"
-import type { RootNavigationProp } from "../navigation/types"
-import { globalStyles, theme } from "../utils/theme"
-import Button from "../components/Button"
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  SafeAreaView,
+  TouchableOpacity,
+  Image,
+  Modal,
+  ActivityIndicator,
+} from "react-native";
+import { useNavigation } from "@react-navigation/native";
+import { Ionicons } from "@expo/vector-icons";
+import type { RootNavigationProp } from "../navigation/types";
+import { globalStyles, theme } from "../utils/theme";
+import Button from "../components/Button";
+import { getDonations } from "../services/donation"; // Update path
+import type { Donation } from "../interfaces/donationInterface"; // Update path
 
-type IconName = keyof typeof Ionicons.glyphMap
-
-// Mock data
-const mockFoodItems = [
-  {
-    id: "1",
-    title: "Fresh Vegetables",
-    quantity: "5kg",
-    distance: "2.5km",
-    expiryTime: "2 hours",
-    image: "https://images.pexels.com/photos/3872406/pexels-photo-3872406.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
-    category: "Vegetables",
-  },
-  {
-    id: "2",
-    title: "Bread and Pastries",
-    quantity: "10 pieces",
-    distance: "1.8km",
-    expiryTime: "4 hours",
-    image: "https://images.pexels.com/photos/30816577/pexels-photo-30816577/free-photo-of-rustic-artisan-bread-loaf-on-floured-surface.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
-    category: "Bakery",
-  },
-  {
-    id: "3",
-    title: "Canned Goods",
-    quantity: "15 cans",
-    distance: "3.2km",
-    expiryTime: "1 week",
-    image: "https://images.pexels.com/photos/6590914/pexels-photo-6590914.jpeg",
-    category: "Non-perishable",
-  },
-]
+type IconName = keyof typeof Ionicons.glyphMap;
 
 const categories = [
   { id: "all", name: "All", icon: "restaurant" as IconName },
@@ -50,74 +31,108 @@ const categories = [
   { id: "dairy", name: "Dairy", icon: "water" as IconName },
   { id: "meat", name: "Meat", icon: "pizza" as IconName },
   { id: "non-perishable", name: "Non-perishable", icon: "cube" as IconName },
-  { id: "prepared", name: "Prepared Food", icon: "fast-food" as IconName },
-]
+  { id: "prepared-food", name: "Prepared-Food", icon: "fast-food" as IconName },
+];
 
 const sortOptions = [
   { id: "distance", label: "Terdekat", icon: "location" as IconName },
   { id: "newest", label: "Terbaru", icon: "time" as IconName },
-  { id: "quantity", label: "Jumlah Terbanyak", icon: "stats-chart" as IconName },
+  {
+    id: "quantity",
+    label: "Jumlah Terbanyak",
+    icon: "stats-chart" as IconName,
+  },
   { id: "expiry", label: "Kadaluarsa Terlama", icon: "hourglass" as IconName },
-]
+];
 
 const SearchScreen: React.FC = () => {
-  const navigation = useNavigation<RootNavigationProp>()
-  const [searchQuery, setSearchQuery] = useState("")
-  const [isFilterModalVisible, setIsFilterModalVisible] = useState(false)
-  const [selectedCategory, setSelectedCategory] = useState("all")
-  const [selectedSort, setSelectedSort] = useState("distance")
-  const [maxDistance, setMaxDistance] = useState("10")
-  const [filteredItems, setFilteredItems] = useState(mockFoodItems)
+  const navigation = useNavigation<RootNavigationProp>();
+  const [donations, setDonations] = useState<Donation[]>([]);
+  const [filteredItems, setFilteredItems] = useState<Donation[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [selectedSort, setSelectedSort] = useState("distance");
+  const [maxDistance, setMaxDistance] = useState("10");
+  const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
 
   useEffect(() => {
-    // Apply filters and search
-    let filtered = [...mockFoodItems]
-    
-    // Apply search
+    const fetchData = async () => {
+      try {
+        const data = await getDonations();
+        setDonations(data);
+      } catch (error) {
+        console.error("Error fetching donations:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  useEffect(() => {
+    let filtered = [...donations];
+
     if (searchQuery.trim()) {
-      filtered = filtered.filter(item => 
+      filtered = filtered.filter((item) =>
         item.title.toLowerCase().includes(searchQuery.toLowerCase())
-      )
+      );
     }
-    
-    // Apply category filter
+
     if (selectedCategory !== "all") {
-      filtered = filtered.filter(item => item.category.toLowerCase() === selectedCategory)
+      filtered = filtered.filter(
+        (item) => item.category?.toLowerCase() === selectedCategory
+      );
     }
-    
-    // Apply distance filter
-    filtered = filtered.filter(item => {
-      const distance = parseFloat(item.distance)
-      return distance <= parseFloat(maxDistance)
-    })
-    
-    // Apply sorting
+
+    // Simulate distance filter (replace with real logic when you have coordinates)
+    filtered = filtered.filter(
+      () => Math.random() * 10 <= parseFloat(maxDistance)
+    );
+
+    // Sorting logic
     filtered.sort((a, b) => {
       switch (selectedSort) {
-        case "distance":
-          return parseFloat(a.distance) - parseFloat(b.distance)
-        case "newest":
-          return 0 // Implement based on actual timestamp
         case "quantity":
-          return parseInt(b.quantity) - parseInt(a.quantity)
+          return b.quantity_value - a.quantity_value;
         case "expiry":
-          // Sort by expiry time (assuming format like "2 hours", "4 hours", "1 week")
-          const getExpiryInHours = (expiry: string) => {
-            if (expiry.includes("week")) return parseInt(expiry) * 168 // 7 * 24 hours
-            if (expiry.includes("day")) return parseInt(expiry) * 24
-            return parseInt(expiry)
-          }
-          return getExpiryInHours(b.expiryTime) - getExpiryInHours(a.expiryTime)
+          return (
+            new Date(b.expiry_date).getTime() -
+            new Date(a.expiry_date).getTime()
+          );
+        case "newest":
+          return (
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          );
         default:
-          return 0
+          return 0;
       }
-    })
-    
-    setFilteredItems(filtered)
-  }, [searchQuery, selectedCategory, selectedSort, maxDistance])
+    });
 
-  const handleFoodItemPress = (item: typeof mockFoodItems[0]) => {
-    navigation.navigate("DonationDetail", { donationId: item.id })
+    setFilteredItems(filtered);
+  }, [searchQuery, selectedCategory, selectedSort, maxDistance, donations]);
+
+  const handleFoodItemPress = (item: Donation) => {
+    navigation.navigate("DonationDetail", {
+      donationId: item.donation_id.toString(),
+    });
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={globalStyles.safeArea}>
+        <View
+          style={[
+            globalStyles.container,
+            styles.container,
+            { justifyContent: "center", alignItems: "center" },
+          ]}
+        >
+          <ActivityIndicator size="large" color={theme.colors.accent} />
+        </View>
+      </SafeAreaView>
+    );
   }
 
   return (
@@ -126,17 +141,26 @@ const SearchScreen: React.FC = () => {
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Available Food</Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.filterButton}
             onPress={() => setIsFilterModalVisible(true)}
           >
-            <Ionicons name="filter" size={24} color={theme.colors.textPrimary} />
+            <Ionicons
+              name="filter"
+              size={24}
+              color={theme.colors.textPrimary}
+            />
           </TouchableOpacity>
         </View>
 
         {/* Search Bar */}
         <View style={styles.searchContainer}>
-          <Ionicons name="search" size={20} color="#999" style={styles.searchIcon} />
+          <Ionicons
+            name="search"
+            size={20}
+            color="#999"
+            style={styles.searchIcon}
+          />
           <TextInput
             style={styles.searchInput}
             placeholder="Search food items..."
@@ -150,8 +174,8 @@ const SearchScreen: React.FC = () => {
 
         {/* Categories */}
         <View style={styles.categoriesWrapper}>
-          <ScrollView 
-            horizontal 
+          <ScrollView
+            horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.categoriesContainer}
           >
@@ -160,20 +184,28 @@ const SearchScreen: React.FC = () => {
                 key={category.id}
                 style={[
                   styles.categoryChip,
-                  selectedCategory === category.id && styles.categoryChipSelected
+                  selectedCategory === category.id &&
+                    styles.categoryChipSelected,
                 ]}
                 onPress={() => setSelectedCategory(category.id)}
               >
-                <Ionicons 
-                  name={category.icon} 
-                  size={20} 
-                  color={selectedCategory === category.id ? theme.colors.textPrimary : theme.colors.textSecondary} 
+                <Ionicons
+                  name={category.icon}
+                  size={20}
+                  color={
+                    selectedCategory === category.id
+                      ? theme.colors.textPrimary
+                      : theme.colors.textSecondary
+                  }
                   style={styles.categoryIcon}
                 />
-                <Text style={[
-                  styles.categoryChipText,
-                  selectedCategory === category.id && styles.categoryChipTextSelected
-                ]}>
+                <Text
+                  style={[
+                    styles.categoryChipText,
+                    selectedCategory === category.id &&
+                      styles.categoryChipTextSelected,
+                  ]}
+                >
                   {category.name}
                 </Text>
               </TouchableOpacity>
@@ -182,28 +214,48 @@ const SearchScreen: React.FC = () => {
         </View>
 
         {/* Food Items List */}
-        <ScrollView 
-          showsVerticalScrollIndicator={false} 
+        <ScrollView
+          showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
           {filteredItems.map((item) => (
             <TouchableOpacity
-              key={item.id}
+              key={item.donation_id}
               style={styles.foodCard}
               onPress={() => handleFoodItemPress(item)}
             >
-              <Image source={{ uri: item.image }} style={styles.foodImage} />
+              <Image
+                source={{
+                  uri:
+                    item.donation_picture || "https://via.placeholder.com/100",
+                }}
+                style={styles.foodImage}
+              />
               <View style={styles.foodInfo}>
                 <Text style={styles.foodTitle}>{item.title}</Text>
-                <Text style={styles.foodQuantity}>{item.quantity}</Text>
+                <Text style={styles.foodQuantity}>
+                  {item.quantity_value} {item.quantity_unit}
+                </Text>
                 <View style={styles.foodMeta}>
                   <View style={styles.metaItem}>
-                    <Ionicons name="location" size={16} color={theme.colors.textSecondary} />
-                    <Text style={styles.metaText}>{item.distance}</Text>
+                    <Ionicons
+                      name="location"
+                      size={16}
+                      color={theme.colors.textSecondary}
+                    />
+                    <Text style={styles.metaText}>
+                      ~{(Math.random() * 10) | 0}km
+                    </Text>
                   </View>
                   <View style={styles.metaItem}>
-                    <Ionicons name="time" size={16} color={theme.colors.textSecondary} />
-                    <Text style={styles.metaText}>{item.expiryTime}</Text>
+                    <Ionicons
+                      name="time"
+                      size={16}
+                      color={theme.colors.textSecondary}
+                    />
+                    <Text style={styles.metaText}>
+                      {new Date(item.expiry_date).toLocaleDateString()}
+                    </Text>
                   </View>
                 </View>
               </View>
@@ -222,8 +274,14 @@ const SearchScreen: React.FC = () => {
             <View style={styles.modalContent}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Filter & Sort</Text>
-                <TouchableOpacity onPress={() => setIsFilterModalVisible(false)}>
-                  <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
+                <TouchableOpacity
+                  onPress={() => setIsFilterModalVisible(false)}
+                >
+                  <Ionicons
+                    name="close"
+                    size={24}
+                    color={theme.colors.textPrimary}
+                  />
                 </TouchableOpacity>
               </View>
 
@@ -234,27 +292,36 @@ const SearchScreen: React.FC = () => {
                     key={option.id}
                     style={[
                       styles.sortOption,
-                      selectedSort === option.id && styles.sortOptionSelected
+                      selectedSort === option.id && styles.sortOptionSelected,
                     ]}
                     onPress={() => setSelectedSort(option.id)}
                   >
-                    <Ionicons 
-                      name={option.icon} 
-                      size={20} 
-                      color={selectedSort === option.id ? theme.colors.textPrimary : theme.colors.textSecondary} 
+                    <Ionicons
+                      name={option.icon}
+                      size={20}
+                      color={
+                        selectedSort === option.id
+                          ? theme.colors.textPrimary
+                          : theme.colors.textSecondary
+                      }
                       style={styles.sortOptionIcon}
                     />
-                    <Text style={[
-                      styles.sortOptionText,
-                      selectedSort === option.id && styles.sortOptionTextSelected
-                    ]}>
+                    <Text
+                      style={[
+                        styles.sortOptionText,
+                        selectedSort === option.id &&
+                          styles.sortOptionTextSelected,
+                      ]}
+                    >
                       {option.label}
                     </Text>
                   </TouchableOpacity>
                 ))}
               </View>
 
-              <Text style={styles.filterSectionTitle}>Maximum Distance (km)</Text>
+              <Text style={styles.filterSectionTitle}>
+                Maximum Distance (km)
+              </Text>
               <View style={styles.distanceInputContainer}>
                 <TextInput
                   style={styles.distanceInput}
@@ -275,8 +342,8 @@ const SearchScreen: React.FC = () => {
         </Modal>
       </View>
     </SafeAreaView>
-  )
-}
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -467,6 +534,6 @@ const styles = StyleSheet.create({
     fontFamily: theme.font.family.regular,
     fontSize: theme.font.size.md,
   },
-})
+});
 
-export default SearchScreen
+export default SearchScreen;

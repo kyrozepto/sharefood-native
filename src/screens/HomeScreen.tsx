@@ -1,149 +1,286 @@
-"use client"
+"use client";
 
-import type React from "react"
-import { useState } from "react"
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Image } from "react-native"
-import { useNavigation } from "@react-navigation/native"
-import { Ionicons } from "@expo/vector-icons"
-import type { RootNavigationProp } from "../navigation/types"
-import { globalStyles, theme } from "../utils/theme"
-import Button from "../components/Button"
-import DonationImage from "../../assets/images/home-donation.jpg"
-// Mock data - replace with actual data from your backend
-const mockStats = {
-  donations: 12,
-  requests: 8,
-  impact: "45kg",
-  rating: 4.8,
-}
+import React, { useCallback, useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  SafeAreaView,
+  ScrollView,
+  Image,
+} from "react-native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { Ionicons } from "@expo/vector-icons";
+import { useAuth } from "../context/auth";
+import type { RootNavigationProp } from "../navigation/types";
+import { globalStyles, theme } from "../utils/theme";
+import Button from "../components/Button";
+import { Donation } from "../interfaces/donationInterface";
+import { RequestItem } from "../interfaces/requestInterface";
+import { getDonations } from "../services/donation";
+import { getRequests } from "../services/request";
 
-const mockRecentDonations = [
-  {
-    id: "1",
-    title: "Fresh Vegetables",
-    quantity: "5kg",
-    location: "2.5km away",
-    timeLeft: "2 hours",
-    image: "https://images.pexels.com/photos/3872406/pexels-photo-3872406.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
-  },
-  {
-    id: "2",
-    title: "Bread and Pastries",
-    quantity: "10 pieces",
-    location: "1.8km away",
-    timeLeft: "4 hours",
-    image: "https://images.pexels.com/photos/30816577/pexels-photo-30816577/free-photo-of-rustic-artisan-bread-loaf-on-floured-surface.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
-  },
-]
+const getStatusColor = (status: string) => {
+  switch (status.toLowerCase()) {
+    case "available":
+      return "#4caf50";
+    case "confirmed":
+      return "#2196f3";
+    case "completed":
+      return "#9e9e9e";
+    case "cancelled":
+      return "#f44336";
+    default:
+      return theme.colors.textSecondary;
+  }
+};
 
 const HomeScreen: React.FC = () => {
-  const navigation = useNavigation<RootNavigationProp>()
-  const [userRole] = useState<"donor" | "recipient">("donor") // Replace with actual user role from auth context
+  const navigation = useNavigation<RootNavigationProp>();
+  const { user, token } = useAuth();
+  const userRole = user?.user_type || "recipient";
+
+  const [recentDonations, setRecentDonations] = useState<Donation[]>([]);
+  const [requests, setRequests] = useState<RequestItem[]>([]);
+  const [donationCount, setDonationCount] = useState(0);
+  const [requestCount, setRequestCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  const capitalize = (text: string) =>
+    text.charAt(0).toUpperCase() + text.slice(1);
+
+  useFocusEffect(
+    useCallback(() => {
+      const fetchData = async () => {
+        if (!user || !token) {
+          setLoading(false);
+          return;
+        }
+
+        setLoading(true);
+        try {
+          const userId = user.user_id;
+
+          const [donationList, requestList] = await Promise.all([
+            getDonations(),
+            getRequests(),
+          ]);
+
+          const sorted = donationList.sort(
+            (a, b) =>
+              new Date(b.created_at).getTime() -
+              new Date(a.created_at).getTime()
+          );
+
+          const userDonations = donationList.filter(
+            (donation) => donation.user_id === userId
+          );
+          const userRequests = requestList.filter(
+            (request) => request.user_id === userId
+          );
+
+          setDonationCount(userDonations.length);
+          setRequestCount(userRequests.length);
+          setRecentDonations(sorted.slice(0, 3));
+          setRequests(requestList);
+        } catch (error) {
+          console.error("Fetch error:", error);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      fetchData();
+    }, [user, token])
+  );
+
+  const calculateTimeLeft = (pickupTime: string): string => {
+    const now = new Date();
+    const pickup = new Date(pickupTime);
+    const diffMs = pickup.getTime() - now.getTime();
+    if (diffMs <= 0) return "Expired";
+    const hours = Math.floor(diffMs / 1000 / 60 / 60);
+    const minutes = Math.floor((diffMs / 1000 / 60) % 60);
+    return `${hours}h ${minutes}m left`;
+  };
+
+  const renderDonorStats = () => (
+    <View style={styles.section}>
+      <Image
+        source={require("../../assets/images/home-donation.jpg")}
+        style={styles.donorImage}
+      />
+      <View style={styles.actionContainer}>
+        <Text style={[styles.sectionTitle, { marginBottom: theme.spacing.lg }]}>
+          Your Donation Stats
+        </Text>
+        <View style={styles.statsContainer}>
+          <TouchableOpacity
+            style={styles.statCard}
+            onPress={() => navigation.navigate("DonationList")}
+          >
+            <Ionicons name="restaurant" size={24} color={theme.colors.accent} />
+            <Text style={styles.statValue}>{donationCount}</Text>
+            <Text style={styles.statLabel}>Donations</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.statCard}
+            onPress={() => navigation.navigate("Donations")}
+          >
+            <Ionicons name="people" size={24} color={theme.colors.accent} />
+            <Text style={styles.statValue}>{requestCount}</Text>
+            <Text style={styles.statLabel}>Requests</Text>
+          </TouchableOpacity>
+
+          <View style={styles.statCard}>
+            <Ionicons name="leaf" size={24} color={theme.colors.accent} />
+            <Text style={styles.statValue}>-</Text>
+            <Text style={styles.statLabel}>Impact</Text>
+          </View>
+        </View>
+
+        <Button
+          title="Add New Donation"
+          onPress={() => navigation.navigate("AddDonation")}
+        />
+        <Button
+          style={{ backgroundColor: theme.colors.accent, borderWidth: 2 }}
+          title="Check Activity"
+          onPress={() => navigation.navigate("Donations")}
+        />
+      </View>
+    </View>
+  );
+
+  const renderRecipientActions = () => (
+    <View style={styles.actionContainer}>
+      <Button
+        title="Search Donations"
+        onPress={() => navigation.navigate("DonationList")}
+      />
+    </View>
+  );
 
   return (
     <SafeAreaView style={globalStyles.safeArea}>
       <View style={styles.header}>
         <View>
-          <Text style={styles.greeting}>Hello, Ka!</Text>
+          <Text style={styles.greeting}>Hello, {user?.user_name}!</Text>
           <Text style={styles.subtitle}>
-            {userRole === "donor" ? "Ready to share some food?" : "Looking for food donations?"}
+            {userRole === "donor"
+              ? "Ready to share some food?"
+              : "Looking for food donations?"}
           </Text>
         </View>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.notificationButton}
           onPress={() => navigation.navigate("Notifications")}
         >
-          <Ionicons name="notifications" size={24} color={theme.colors.textPrimary} />
+          <Ionicons
+            name="notifications"
+            size={24}
+            color={theme.colors.textPrimary}
+          />
         </TouchableOpacity>
       </View>
+
       <ScrollView style={[globalStyles.container, styles.scrollContent]}>
-        {userRole === "donor" ? (
-          // for user role donor
-          <View style={styles.section}>
-            <Image source={DonationImage} style={styles.donorImage} />
-          <View style={styles.actionContainer}>
-            <Text style={[styles.sectionTitle, { marginBottom: theme.spacing.lg }]}>Your Donation Stats</Text>
-            <View style={styles.statsContainer}>
-              <TouchableOpacity 
-                style={styles.statCard}
-                onPress={() => navigation.navigate("DonationList")}
-              >
-                <Ionicons name="restaurant" size={24} color={theme.colors.accent} />
-                <Text style={styles.statValue}>{mockStats.donations}</Text>
-                <Text style={styles.statLabel}>Donations</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.statCard}
-                onPress={() => navigation.navigate("Donations")}
-              >
-                <Ionicons name="people" size={24} color={theme.colors.accent} />
-                <Text style={styles.statValue}>{mockStats.requests}</Text>
-                <Text style={styles.statLabel}>Requests</Text>
-              </TouchableOpacity>
-              <View style={styles.statCard}>
-                <Ionicons name="leaf" size={24} color={theme.colors.accent} />
-                <Text style={styles.statValue}>{mockStats.impact}</Text>
-                <Text style={styles.statLabel}>Impact</Text>
-              </View>
-            </View>
-            <Button 
-              title="Add New Donation" 
-              onPress={() => navigation.navigate("AddDonation")}
-              />
-              <Button style={{ backgroundColor: theme.colors.accent, borderWidth: 2}}
-              title="Check Activity"
-              onPress={() => navigation.navigate("Donations")}
-              />
-            </View>
-          </View>
-        ) : (
-          // for user role recipient
-          <View style={styles.actionContainer}>
-            <Button 
-              title="Search Donations"
-              onPress={() => navigation.navigate("DonationList")}
-            />
-          </View>
-        )}
+        {userRole === "donor" ? renderDonorStats() : renderRecipientActions()}
 
         <View style={[styles.section, { paddingBottom: 100 }]}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>
-              {userRole === "donor" ? "Your Recent Donations" : "Available Donations"}
+              {userRole === "donor"
+                ? "Your Recent Donations"
+                : "Available Donations"}
             </Text>
-            <TouchableOpacity onPress={() => navigation.navigate("DonationList")}>
+            <TouchableOpacity
+              onPress={() => navigation.navigate("DonationList")}
+            >
               <Text style={styles.seeAllText}>See All</Text>
             </TouchableOpacity>
           </View>
 
-          {mockRecentDonations.map((donation) => (
-            <TouchableOpacity
-              key={donation.id}
-              style={styles.donationCard}
-              onPress={() => navigation.navigate("DonationDetail", { donationId: donation.id })}
-            >
-              <Image source={{ uri: donation.image }} style={styles.donationImage} />
-              <View style={styles.donationInfo}>
-                <Text style={styles.donationTitle}>{donation.title}</Text>
-                <Text style={styles.donationQuantity}>{donation.quantity}</Text>
-                <View style={styles.donationMeta}>
-                  <View style={styles.metaItem}>
-                    <Ionicons name="location" size={16} color={theme.colors.textSecondary} />
-                    <Text style={styles.metaText}>{donation.location}</Text>
+          {loading ? (
+            <Text style={{ color: theme.colors.textSecondary }}>
+              Loading...
+            </Text>
+          ) : recentDonations.length === 0 ? (
+            <Text style={{ color: theme.colors.textSecondary }}>
+              No recent donations.
+            </Text>
+          ) : (
+            recentDonations.map((donation) => {
+              const status = donation.donation_status.toLowerCase();
+              const displayStatus = capitalize(status);
+              const matchedRequest = requests.find(
+                (r) =>
+                  r.donation_id === donation.donation_id &&
+                  r.request_status.toLowerCase() === "confirmed"
+              );
+
+              return (
+                <TouchableOpacity
+                  key={donation.donation_id}
+                  style={styles.donationCard}
+                  onPress={() =>
+                    navigation.navigate("DonationDetail", {
+                      donationId: donation.donation_id.toString(),
+                    })
+                  }
+                >
+                  <Image
+                    source={{
+                      uri:
+                        donation.donation_picture ||
+                        "https://via.placeholder.com/100",
+                    }}
+                    style={styles.donationImage}
+                  />
+                  <View style={styles.donationInfo}>
+                    <Text style={styles.donationTitle}>
+                      {donation.title || "Untitled"}
+                    </Text>
+                    <Text style={styles.donationQuantity}>
+                      {donation.quantity_value || 0}{" "}
+                      {donation.quantity_unit || ""}
+                    </Text>
+                    <View style={styles.donationMeta}>
+                      <View
+                        style={[
+                          styles.statusBadge,
+                          { backgroundColor: getStatusColor(status) },
+                        ]}
+                      >
+                        <Text style={styles.statusText}>{displayStatus}</Text>
+                      </View>
+
+                      {status === "confirmed" &&
+                        matchedRequest?.pickup_time && (
+                          <View style={styles.metaItem}>
+                            <Ionicons
+                              name="time"
+                              size={16}
+                              color={theme.colors.textSecondary}
+                            />
+                            <Text style={styles.metaText}>
+                              {calculateTimeLeft(matchedRequest.pickup_time)}
+                            </Text>
+                          </View>
+                        )}
+                    </View>
                   </View>
-                  <View style={styles.metaItem}>
-                    <Ionicons name="time" size={16} color={theme.colors.textSecondary} />
-                    <Text style={styles.metaText}>{donation.timeLeft}</Text>
-                  </View>
-                </View>
-              </View>
-            </TouchableOpacity>
-          ))}
+                </TouchableOpacity>
+              );
+            })
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
-  )
-}
+  );
+};
 
 const styles = StyleSheet.create({
   header: {
@@ -203,7 +340,7 @@ const styles = StyleSheet.create({
   statLabel: {
     color: theme.colors.textSecondary,
     fontFamily: theme.font.family.regular,
-    fontSize: theme.font.size.sm-1,
+    fontSize: theme.font.size.sm - 1,
   },
   actionContainer: {
     marginBottom: theme.spacing.xl,
@@ -258,6 +395,7 @@ const styles = StyleSheet.create({
   donationMeta: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "center",
   },
   metaItem: {
     flexDirection: "row",
@@ -275,6 +413,17 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginBottom: theme.spacing.md,
   },
-})
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignSelf: "flex-start",
+  },
+  statusText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+});
 
-export default HomeScreen
+export default HomeScreen;

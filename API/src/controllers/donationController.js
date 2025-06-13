@@ -87,6 +87,7 @@ async function createDonation(req, res) {
       expiry_date,
       category,
       donation_picture: photoUrl || null,
+      donation_status: "available",
     };
 
     Donation.CreateDonation(donationData, (err, newDonation) => {
@@ -108,27 +109,40 @@ async function updateDonation(req, res) {
     const { id } = req.params;
     const { donation_status } = req.body;
 
-    if (!donation_status)
-      return res.status(400).json({ message: "donation_status wajib diisi" });
-
-    Donation.getDonationById(id, (err, donation) => {
+    Donation.getDonationById(id, async (err, donation) => {
       if (err || !donation)
         return res.status(404).json({ message: "Donasi tidak ditemukan" });
 
       const statusToUpdate =
         donation.quantity_value === 0 ? "completed" : donation_status;
 
-      Donation.updateDonation(
-        id,
-        { donation_status: statusToUpdate },
-        (err, result) => {
-          if (err)
-            return res
-              .status(500)
-              .json({ message: "Gagal update status", error: err });
-          res.status(200).json({ message: "Status donasi diperbarui" });
-        }
-      );
+      const updatedFields = {};
+
+      if (donation.quantity_value === 0 || donation_status) {
+        updatedFields.donation_status = statusToUpdate;
+      }
+
+      if (req.file) {
+        const uploadedUrl = await imageUpload(req.file); // ✅ Upload to ImageKit
+        updatedFields.donation_picture = uploadedUrl;
+      }
+
+      if (Object.keys(updatedFields).length === 0) {
+        return res
+          .status(400)
+          .json({ message: "Tidak ada data untuk diperbarui" });
+      }
+
+      Donation.updateDonation(id, updatedFields, (err, result) => {
+        if (err)
+          return res
+            .status(500)
+            .json({ message: "Gagal update donasi", error: err });
+
+        res.status(200).json({ message: "Donasi berhasil diperbarui" });
+      });
+
+      console.log("Uploaded file:", req.file);
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

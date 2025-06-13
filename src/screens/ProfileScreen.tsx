@@ -11,7 +11,7 @@ import {
   Modal,
   ActivityIndicator,
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { globalStyles, theme } from "../utils/theme";
 import type { RootNavigationProp } from "../navigation/types";
@@ -22,21 +22,33 @@ const ProfileScreen: React.FC = () => {
   const navigation = useNavigation<RootNavigationProp>();
   const { user, token, logout } = useAuth();
   const [userData, setUserData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); // Initialize to true
   const [modalVisible, setModalVisible] = useState(false);
   const [modalContent, setModalContent] = useState({
     title: "",
     description: "",
   });
 
-  useEffect(() => {
-    if (user?.user_id && token) {
-      getUserById(user.user_id, token)
-        .then(setUserData)
-        .catch((err) => console.error("Failed to load user data:", err.message))
-        .finally(() => setLoading(false));
-    }
-  }, [user, token]);
+  useFocusEffect(
+    React.useCallback(() => {
+      const fetchUserData = async () => {
+        if (user?.user_id && token) {
+          try {
+            const data = await getUserById(user.user_id, token);
+            setUserData(data);
+          } catch (error) {
+          } finally {
+            setLoading(false);
+          }
+        } else {
+          setLoading(false);
+        }
+      };
+
+      fetchUserData();
+      return () => {};
+    }, [user?.user_id, token])
+  );
 
   const handleLogout = () => {
     logout();

@@ -13,6 +13,7 @@ async function imageUpload(file) {
     file: file.buffer,
     fileName: file.originalname,
   });
+  console.log("Uploaded file:", uploadedFile);
   return uploadedFile?.url;
 }
 

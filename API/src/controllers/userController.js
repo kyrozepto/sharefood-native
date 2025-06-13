@@ -108,26 +108,13 @@ async function createUser(req, res) {
 }
 
 async function updateUser(req, res) {
-  console.log("=== UPDATE USER REQUEST ===");
-  console.log("User ID:", req.params.id);
-  console.log("Request Body:", req.body);
-  console.log("Request File:", req.file);
-  console.log("Request Headers:", req.headers);
-
   try {
     const { id } = req.params;
     const { user_name, password, phone, email, user_type } = req.body;
 
     let photoUrl = null;
 
-    // Check if file was received
     if (req.file) {
-      console.log("File details:");
-      console.log("- Original name:", req.file.originalname);
-      console.log("- Mimetype:", req.file.mimetype);
-      console.log("- Size:", req.file.size);
-      console.log("- Buffer length:", req.file.buffer?.length);
-
       try {
         console.log("Attempting to upload to ImageKit...");
         photoUrl = await imageUpload(req.file);
@@ -143,7 +130,8 @@ async function updateUser(req, res) {
       console.log("No file received in request");
     }
 
-    // Prepare updated data
+    console.log("ImageKit upload successful:", photoUrl);
+
     const updatedData = {};
 
     if (user_name !== undefined && user_name !== null) {
@@ -159,18 +147,17 @@ async function updateUser(req, res) {
       updatedData.user_type = user_type;
     }
 
-    // Handle password
     if (password && password !== "********" && password.trim() !== "") {
       console.log("Hashing new password...");
       const saltRounds = 10;
       updatedData.password = await bcrypt.hash(password, saltRounds);
     }
 
-    // Handle profile picture
     if (photoUrl) {
       console.log("Adding profile picture URL to update data:", photoUrl);
       updatedData.profile_picture = photoUrl;
     }
+    console.log("ImageKit upload successful:", photoUrl);
 
     console.log("Final update data:", updatedData);
 

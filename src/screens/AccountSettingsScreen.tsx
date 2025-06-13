@@ -19,7 +19,7 @@ import type { RootNavigationProp } from "../navigation/types";
 import { globalStyles, theme } from "../utils/theme";
 import { useAuth } from "../context/auth";
 import { getUserById, updateUser } from "../services/user";
-import type { User } from "../services/user";
+import type { User } from "../interfaces/userInterface";
 
 const AccountSettingsScreen: React.FC = () => {
   const navigation = useNavigation<RootNavigationProp>();
@@ -27,6 +27,7 @@ const AccountSettingsScreen: React.FC = () => {
 
   const [userData, setUserData] = useState<User | null>(null);
   const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [profileImageChanged, setProfileImageChanged] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -50,7 +51,6 @@ const AccountSettingsScreen: React.FC = () => {
           });
         })
         .catch((err) => {
-          console.error("Failed to fetch user:", err.message);
           Alert.alert("Error", "Failed to load profile data.");
         });
     }
@@ -74,6 +74,8 @@ const AccountSettingsScreen: React.FC = () => {
           });
           if (!result.canceled) {
             setProfileImage(result.assets[0].uri);
+            setProfileImageChanged(true);
+            setIsEditing(true); // ✅ ADD THIS LINE
             Alert.alert("Success", "Profile picture updated!");
           }
         },
@@ -95,6 +97,8 @@ const AccountSettingsScreen: React.FC = () => {
           });
           if (!result.canceled) {
             setProfileImage(result.assets[0].uri);
+            setProfileImageChanged(true);
+            setIsEditing(true);
             Alert.alert("Success", "Profile picture updated!");
           }
         },
@@ -123,7 +127,7 @@ const AccountSettingsScreen: React.FC = () => {
         form.append("password", formData.password);
       }
 
-      if (profileImage && !profileImage.startsWith("http")) {
+      if (profileImage && profileImageChanged) {
         const filename = profileImage.split("/").pop()!;
         const match = /\.(\w+)$/.exec(filename);
         const ext = match ? match[1] : "jpg";
@@ -135,10 +139,13 @@ const AccountSettingsScreen: React.FC = () => {
         } as any);
       }
 
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
       await updateUser(user.user_id, form, token);
 
       setIsEditing(false);
       setShowConfirmationModal(false);
+      setProfileImageChanged(false);
       Alert.alert("Success", "Profile updated successfully!");
     } catch (error) {
       const err = error as Error;

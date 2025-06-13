@@ -17,7 +17,7 @@ router.post(
   router.put(
     "/:id",
     authenticateToken,
-    upload.none(),
+    upload.single("donation_picture"),
     donationController.updateDonation
   );
 
