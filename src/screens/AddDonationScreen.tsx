@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -11,31 +11,57 @@ import {
   ScrollView,
   Image,
   Alert,
+  Platform,
+  FlatList,
+  ActivityIndicator,
+  Keyboard,
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import {
+  useFocusEffect,
+  useNavigation,
+  useRoute,
+} from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { Picker } from "@react-native-picker/picker";
+import DateTimePicker from "@react-native-community/datetimepicker";
+import * as Location from "expo-location";
 import { useAuth } from "../context/auth";
 import { createDonation } from "../services/donation";
 import type { RootNavigationProp } from "../navigation/types";
 import { globalStyles, theme } from "../utils/theme";
 import Button from "../components/Button";
 
+interface LocationSuggestion {
+  place_id: string;
+  display_name: string;
+  lat: string;
+  lon: string;
+  type: string;
+  importance: number;
+}
+
 const AddDonationScreen: React.FC = () => {
   const navigation = useNavigation<RootNavigationProp>();
+  const route = useRoute();
   const { user, token } = useAuth();
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [quantityValue, setQuantityValue] = useState("");
   const [quantityUnit, setQuantityUnit] = useState("kg");
-  const [expiryDay, setExpiryDay] = useState("");
-  const [expiryMonth, setExpiryMonth] = useState("");
-  const [expiryYear, setExpiryYear] = useState("");
-  const [location, setLocation] = useState("");
+  const [locationQuery, setLocationQuery] = useState("");
+  const [selectedLocation, setSelectedLocation] =
+    useState<LocationSuggestion | null>(null);
+  const [locationSuggestions, setLocationSuggestions] = useState<
+    LocationSuggestion[]
+  >([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [loadingLocation, setLoadingLocation] = useState(false);
   const [category, setCategory] = useState("vegetables");
   const [image, setImage] = useState<string | null>(null);
+  const [expiryDate, setExpiryDate] = useState<Date | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState({
     title: "",
@@ -49,6 +75,152 @@ const AddDonationScreen: React.FC = () => {
   const clearError = (field: keyof typeof errors) => {
     setErrors((prev) => ({ ...prev, [field]: "" }));
   };
+
+  // Debounce function for location search
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (locationQuery.trim() && locationQuery.length > 2) {
+        searchLocations(locationQuery);
+      } else {
+        setLocationSuggestions([]);
+        setShowSuggestions(false);
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [locationQuery]);
+
+  const searchLocations = async (query: string) => {
+    setLoadingLocation(true);
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+          query
+        )}&limit=5&addressdetails=1&countrycodes=id`,
+        {
+          method: "GET",
+          headers: {
+            "User-Agent": "FoodDonationApp/1.0",
+            Accept: "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const text = await response.text();
+      let data: LocationSuggestion[];
+
+      try {
+        data = JSON.parse(text);
+      } catch (parseError) {
+        console.error("JSON parse error:", parseError, "Response:", text);
+        throw new Error("Invalid response format");
+      }
+
+      setLocationSuggestions(data || []);
+      setShowSuggestions(true);
+    } catch (error) {
+      console.error("Location search error:", error);
+      Alert.alert("Error", "Failed to search locations. Please try again.");
+      setLocationSuggestions([]);
+      setShowSuggestions(false);
+    } finally {
+      setLoadingLocation(false);
+    }
+  };
+
+  const selectLocation = (location: LocationSuggestion) => {
+    setSelectedLocation(location);
+    setLocationQuery(location.display_name);
+    setShowSuggestions(false);
+    clearError("location");
+    Keyboard.dismiss();
+  };
+
+  const getCurrentLocation = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert(
+          "Permission Denied",
+          "Location permission is required to get your current location."
+        );
+        return;
+      }
+
+      setLoadingLocation(true);
+      const currentLocation = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+
+      // Reverse geocode to get address
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${currentLocation.coords.latitude}&lon=${currentLocation.coords.longitude}&addressdetails=1&countrycodes=id`,
+        {
+          method: "GET",
+          headers: {
+            "User-Agent": "FoodDonationApp/1.0",
+            Accept: "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const text = await response.text();
+      let data;
+
+      try {
+        data = JSON.parse(text);
+      } catch (parseError) {
+        console.error("JSON parse error:", parseError, "Response:", text);
+        // Fallback: create location data with coordinates only
+        data = {
+          place_id: "current_location",
+          display_name: `${currentLocation.coords.latitude.toFixed(
+            6
+          )}, ${currentLocation.coords.longitude.toFixed(6)}`,
+          lat: currentLocation.coords.latitude.toString(),
+          lon: currentLocation.coords.longitude.toString(),
+          type: "current_location",
+          importance: 1,
+        };
+      }
+
+      if (data && (data.display_name || data.lat)) {
+        const locationData: LocationSuggestion = {
+          place_id: data.place_id || "current_location",
+          display_name:
+            data.display_name ||
+            `${currentLocation.coords.latitude.toFixed(
+              6
+            )}, ${currentLocation.coords.longitude.toFixed(6)}`,
+          lat: data.lat || currentLocation.coords.latitude.toString(),
+          lon: data.lon || currentLocation.coords.longitude.toString(),
+          type: "current_location",
+          importance: 1,
+        };
+        selectLocation(locationData);
+      } else {
+        throw new Error("Invalid location data received");
+      }
+    } catch (error) {
+      console.error("Current location error:", error);
+      Alert.alert(
+        "Error",
+        "Failed to get current location. Please search manually or try again."
+      );
+    } finally {
+      setLoadingLocation(false);
+    }
+  };
+
+  // Removed auto-location filling - users can manually choose to use current location
 
   const pickImage = async () => {
     Alert.alert("Add Photo", "Choose photo source", [
@@ -95,6 +267,14 @@ const AddDonationScreen: React.FC = () => {
     ]);
   };
 
+  const onChangeDate = (_: any, selectedDate?: Date) => {
+    setShowDatePicker(Platform.OS === "ios");
+    if (selectedDate) {
+      setExpiryDate(selectedDate);
+      clearError("expiryDate");
+    }
+  };
+
   const handleSubmit = async () => {
     const newErrors = {
       title: "",
@@ -109,16 +289,8 @@ const AddDonationScreen: React.FC = () => {
     if (!description.trim()) newErrors.description = "Description is required";
     if (!quantityValue.trim() || isNaN(Number(quantityValue)))
       newErrors.quantity = "Quantity must be a valid number";
-    if (
-      !expiryDay.trim() ||
-      !expiryMonth.trim() ||
-      !expiryYear.trim() ||
-      isNaN(Number(expiryDay)) ||
-      isNaN(Number(expiryMonth)) ||
-      isNaN(Number(expiryYear))
-    )
-      newErrors.expiryDate = "Expiry date must be complete (DD-MM-YYYY)";
-    if (!location.trim()) newErrors.location = "Location is required";
+    if (!expiryDate) newErrors.expiryDate = "Please select an expiry date.";
+    if (!selectedLocation) newErrors.location = "Please select a location";
     if (!image) newErrors.image = "Please add a photo";
 
     setErrors(newErrors);
@@ -129,10 +301,13 @@ const AddDonationScreen: React.FC = () => {
       return;
     }
 
-    const formattedExpiry = `${expiryDay.padStart(
-      2,
-      "0"
-    )}-${expiryMonth.padStart(2, "0")}-${expiryYear}`;
+    const formattedExpiry = expiryDate
+      ? `${expiryDate.getDate().toString().padStart(2, "0")}-${(
+          expiryDate.getMonth() + 1
+        )
+          .toString()
+          .padStart(2, "0")}-${expiryDate.getFullYear()}`
+      : "";
 
     setIsLoading(true);
     try {
@@ -142,7 +317,11 @@ const AddDonationScreen: React.FC = () => {
       formData.append("description", description);
       formData.append("quantity_value", quantityValue);
       formData.append("quantity_unit", quantityUnit);
-      formData.append("location", location);
+      formData.append(
+        "location",
+        `${selectedLocation!.lat},${selectedLocation!.lon}`
+      );
+      formData.append("location_name", selectedLocation!.display_name);
       formData.append("expiry_date", formattedExpiry);
       formData.append("category", category);
 
@@ -156,7 +335,7 @@ const AddDonationScreen: React.FC = () => {
 
       await createDonation(formData as any, token);
       Alert.alert("Success", "Donation created successfully!");
-      navigation.goBack();
+      navigation.navigate("Main", { screen: "Home" });
     } catch (err) {
       console.error("Donation error", err);
       Alert.alert("Error", "Failed to submit donation.");
@@ -164,6 +343,27 @@ const AddDonationScreen: React.FC = () => {
       setIsLoading(false);
     }
   };
+
+  const renderLocationSuggestion = (
+    item: LocationSuggestion,
+    index: number
+  ) => (
+    <TouchableOpacity
+      key={item.place_id}
+      style={styles.suggestionItem}
+      onPress={() => selectLocation(item)}
+    >
+      <Ionicons
+        name="location-outline"
+        size={20}
+        color={theme.colors.textPrimary}
+        style={styles.suggestionIcon}
+      />
+      <Text style={styles.suggestionText} numberOfLines={2}>
+        {item.display_name}
+      </Text>
+    </TouchableOpacity>
+  );
 
   return (
     <SafeAreaView style={globalStyles.safeArea}>
@@ -181,6 +381,8 @@ const AddDonationScreen: React.FC = () => {
       <ScrollView
         style={globalStyles.container}
         contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        nestedScrollEnabled={true}
       >
         <TouchableOpacity style={styles.imageContainer} onPress={pickImage}>
           {image ? (
@@ -257,8 +459,6 @@ const AddDonationScreen: React.FC = () => {
               <Picker.Item label="g" value="g" />
               <Picker.Item label="liter" value="liter" />
               <Picker.Item label="ml" value="ml" />
-              <Picker.Item label="pcs" value="pcs" />
-              <Picker.Item label="pack" value="pack" />
             </Picker>
           </View>
         </View>
@@ -268,74 +468,139 @@ const AddDonationScreen: React.FC = () => {
 
         <View style={styles.inputContainer}>
           <Text style={styles.label}>Expiry Date:</Text>
-          <View style={styles.expiryRow}>
-            <TextInput
-              style={[
-                styles.input,
-                styles.expiryInput,
-                errors.expiryDate && styles.inputError,
-              ]}
-              placeholder="DD"
-              placeholderTextColor={theme.colors.textTertiary}
-              keyboardType="numeric"
-              maxLength={2}
-              value={expiryDay}
-              onChangeText={(t) => {
-                setExpiryDay(t);
-                clearError("expiryDate");
+          <TouchableOpacity
+            onPress={() => setShowDatePicker(true)}
+            style={[styles.input, errors.expiryDate && styles.inputError]}
+          >
+            <Text
+              style={{
+                color: expiryDate
+                  ? theme.colors.textPrimary
+                  : theme.colors.textTertiary,
               }}
+            >
+              {expiryDate ? expiryDate.toDateString() : "Select Expiry Date"}
+            </Text>
+          </TouchableOpacity>
+          {showDatePicker && (
+            <DateTimePicker
+              value={expiryDate || new Date()}
+              mode="date"
+              display="default"
+              onChange={onChangeDate}
+              minimumDate={new Date()}
             />
-            <TextInput
-              style={[
-                styles.input,
-                styles.expiryInput,
-                errors.expiryDate && styles.inputError,
-              ]}
-              placeholder="MM"
-              placeholderTextColor={theme.colors.textTertiary}
-              keyboardType="numeric"
-              maxLength={2}
-              value={expiryMonth}
-              onChangeText={(t) => {
-                setExpiryMonth(t);
-                clearError("expiryDate");
-              }}
-            />
-            <TextInput
-              style={[
-                styles.input,
-                styles.expiryInput,
-                errors.expiryDate && styles.inputError,
-              ]}
-              placeholder="YYYY"
-              placeholderTextColor={theme.colors.textTertiary}
-              keyboardType="numeric"
-              maxLength={4}
-              value={expiryYear}
-              onChangeText={(t) => {
-                setExpiryYear(t);
-                clearError("expiryDate");
-              }}
-            />
-          </View>
+          )}
           {errors.expiryDate && (
             <Text style={styles.errorText}>{errors.expiryDate}</Text>
           )}
         </View>
 
-        <TextInput
-          style={[styles.input, errors.location && styles.inputError]}
-          placeholder="Location"
-          placeholderTextColor={theme.colors.textTertiary}
-          value={location}
-          onChangeText={(t) => {
-            setLocation(t);
-            clearError("location");
-          }}
-        />
-        {errors.location && (
-          <Text style={styles.errorText}>{errors.location}</Text>
-        )}
+        <View style={styles.inputContainer}>
+          <View style={styles.locationHeader}>
+            <Text style={styles.label}>Location:</Text>
+            <TouchableOpacity
+              onPress={getCurrentLocation}
+              style={styles.currentLocationButton}
+              disabled={loadingLocation}
+            >
+              {loadingLocation ? (
+                <ActivityIndicator
+                  size="small"
+                  color={theme.colors.textPrimary}
+                />
+              ) : (
+                <Ionicons
+                  name="location"
+                  size={16}
+                  color={theme.colors.textPrimary}
+                />
+              )}
+              <Text style={styles.currentLocationText}>Use Current</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.locationInputContainer}>
+            <TextInput
+              style={[
+                styles.input,
+                styles.locationInput,
+                errors.location && styles.inputError,
+                selectedLocation && styles.inputWithSelection, // Add this line
+              ]}
+              placeholder={
+                selectedLocation
+                  ? selectedLocation.display_name
+                  : "Search for location..."
+              }
+              placeholderTextColor={
+                selectedLocation
+                  ? theme.colors.textPrimary
+                  : theme.colors.textTertiary
+              }
+              value={selectedLocation ? "" : locationQuery} // Show empty when location is selected
+              onChangeText={(text) => {
+                setLocationQuery(text);
+                if (!text.trim()) {
+                  setSelectedLocation(null);
+                  setShowSuggestions(false);
+                }
+                clearError("location");
+              }}
+              onFocus={() => {
+                // Clear selection when user wants to search again
+                if (selectedLocation) {
+                  setSelectedLocation(null);
+                  setLocationQuery("");
+                }
+                if (locationSuggestions.length > 0) {
+                  setShowSuggestions(true);
+                }
+              }}
+            />
+
+            {/* Show selected location icon inside input */}
+            {selectedLocation && (
+              <View style={styles.selectedLocationIndicator}>
+                <Ionicons
+                  name="checkmark-circle"
+                  size={20}
+                  color={theme.colors.accent}
+                />
+              </View>
+            )}
+
+            {loadingLocation && locationQuery && !selectedLocation && (
+              <View style={styles.loadingIndicator}>
+                <ActivityIndicator
+                  size="small"
+                  color={theme.colors.textPrimary}
+                />
+              </View>
+            )}
+          </View>
+
+          {showSuggestions &&
+            locationSuggestions.length > 0 &&
+            !selectedLocation && (
+              <View style={styles.suggestionsContainer}>
+                <ScrollView
+                  style={styles.suggestionsList}
+                  keyboardShouldPersistTaps="handled"
+                  nestedScrollEnabled={false}
+                  showsVerticalScrollIndicator={true}
+                >
+                  {locationSuggestions.map((item, index) =>
+                    renderLocationSuggestion(item, index)
+                  )}
+                </ScrollView>
+              </View>
+            )}
+
+          {errors.location && (
+            <Text style={styles.errorText}>{errors.location}</Text>
+          )}
+        </View>
 
         <View style={styles.pickerWrapper}>
           <Picker
@@ -449,15 +714,86 @@ const styles = StyleSheet.create({
     fontSize: theme.font.size.md,
     marginLeft: 10,
   },
-  expiryRow: {
+  locationHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    gap: 8,
+    alignItems: "center",
+    marginBottom: 8,
   },
-  expiryInput: {
-    flex: 1,
-    textAlign: "center",
+  currentLocationButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: theme.colors.backgroundSecondary,
+    borderRadius: 20,
+  },
+  currentLocationText: {
     color: theme.colors.textPrimary,
+    fontSize: 12,
+    marginLeft: 4,
+    fontWeight: "500",
+  },
+  locationInputContainer: {
+    position: "relative",
+  },
+  locationInput: {
+    paddingRight: 40,
+  },
+  loadingIndicator: {
+    position: "absolute",
+    right: 15,
+    top: "50%",
+    transform: [{ translateY: -10 }],
+  },
+  suggestionsContainer: {
+    marginTop: 4,
+    backgroundColor: theme.colors.backgroundSecondary,
+    borderRadius: 12,
+    maxHeight: 200,
+    overflow: "hidden",
+  },
+  suggestionsList: {
+    maxHeight: 200,
+  },
+  suggestionItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.gradientEnd,
+  },
+  suggestionIcon: {
+    marginRight: 10,
+  },
+  suggestionText: {
+    color: theme.colors.textPrimary,
+    fontSize: 14,
+    flex: 1,
+  },
+  selectedLocationContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 8,
+    padding: 8,
+    backgroundColor: theme.colors.backgroundSecondary,
+    borderRadius: 8,
+  },
+  selectedLocationText: {
+    color: theme.colors.textSecondary,
+    fontSize: 12,
+    marginLeft: 8,
+    flex: 1,
+  },
+  inputWithSelection: {
+    color: theme.colors.textPrimary,
+    fontWeight: "500",
+  },
+  selectedLocationIndicator: {
+    position: "absolute",
+    right: 15,
+    top: "50%",
+    transform: [{ translateY: -10 }],
   },
 });
 

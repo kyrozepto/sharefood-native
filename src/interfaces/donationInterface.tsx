@@ -24,6 +24,13 @@ export interface CreateDonationPayload {
   donation_picture?: string;
 }
 
+import { RequestItemWithUser } from "./requestInterface";
+
 export interface UpdateDonationPayload {
   donation_status: string;
+}
+
+export interface DonationWithRequests extends Donation {
+  requests: RequestItemWithUser[];
+  matchedRequest?: RequestItemWithUser;
 }

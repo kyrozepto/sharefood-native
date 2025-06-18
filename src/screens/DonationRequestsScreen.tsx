@@ -1,7 +1,6 @@
 "use client";
 
-import type React from "react";
-import { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -10,58 +9,79 @@ import {
   SafeAreaView,
   ScrollView,
   Image,
+  ActivityIndicator,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import type { RootNavigationProp, RootRouteProp } from "../navigation/types";
 import { globalStyles, theme } from "../utils/theme";
 import Button from "../components/Button";
+import { getRequests } from "../services/request";
+import { updateRequest } from "../services/request";
+import { getUserById } from "../services/user";
+import { useAuth } from "../context/auth";
+import type { RequestItem } from "../interfaces/requestInterface";
+import type { User } from "../interfaces/userInterface";
 
-// Mock data - replace with actual data from your backend
-const mockRequests = [
-  {
-    id: "1",
-    recipient: {
-      name: "Alice Smith",
-      rating: 4.5,
-      totalRequests: 8,
-      image: "https://picsum.photos/201",
-    },
-    quantity: "2kg",
-    status: "pending",
-    message: "I can pick up within the next hour",
-    timeRequested: "10 minutes ago",
-  },
-  {
-    id: "2",
-    recipient: {
-      name: "Bob Johnson",
-      rating: 4.8,
-      totalRequests: 12,
-      image: "https://picsum.photos/202",
-    },
-    quantity: "3 serving",
-    status: "approved",
-    message: "I'll be there in 30 minutes",
-    timeRequested: "5 minutes ago",
-  },
-];
+interface ExtendedRequest extends RequestItem {
+  user: User | null;
+}
 
 const DonationRequestsScreen: React.FC = () => {
   const navigation = useNavigation<RootNavigationProp>();
   const route = useRoute<RootRouteProp<"DonationRequests">>();
-  const [isLoading, setIsLoading] = useState(false);
+  const { user, token } = useAuth();
+  const donationId = route.params?.donationId;
+
+  const [requests, setRequests] = useState<ExtendedRequest[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchRequests = async () => {
+      if (!donationId || !token) return;
+      try {
+        const allRequests = await getRequests();
+        const filtered = allRequests.filter(
+          (r) => r.donation_id === Number(donationId)
+        );
+
+        const enriched = await Promise.all(
+          filtered.map(async (r) => {
+            try {
+              const userData = await getUserById(r.user_id, token);
+              return { ...r, user: userData };
+            } catch {
+              return { ...r, user: null };
+            }
+          })
+        );
+
+        setRequests(enriched);
+      } catch (error) {
+        console.error("Error fetching requests:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchRequests();
+  }, [donationId, token]);
 
   const handleRequest = async (
-    requestId: string,
-    action: "approve" | "reject"
+    requestId: number,
+    action: "approved" | "rejected"
   ) => {
+    if (!token) return;
     setIsLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      // Handle the request action here
+      await updateRequest(requestId, { request_status: action }, token);
+      setRequests((prev) =>
+        prev.map((r) =>
+          r.request_id === requestId ? { ...r, request_status: action } : r
+        )
+      );
     } catch (error) {
-      // Handle error
+      console.error("Failed to update request:", error);
     } finally {
       setIsLoading(false);
     }
@@ -86,84 +106,83 @@ const DonationRequestsScreen: React.FC = () => {
         </View>
 
         <View style={styles.content}>
-          {mockRequests.map((request) => (
-            <View key={request.id} style={styles.requestCard}>
-              <View style={styles.recipientInfo}>
-                <Image
-                  source={{ uri: request.recipient.image }}
-                  style={styles.recipientImage}
-                />
-                <View style={styles.recipientDetails}>
-                  <Text style={styles.recipientName}>
-                    {request.recipient.name}
-                  </Text>
-                  <View style={styles.ratingContainer}>
-                    <Ionicons
-                      name="star"
-                      size={16}
-                      color={theme.colors.accent}
-                    />
-                    <Text style={styles.ratingText}>
-                      {request.recipient.rating}
-                    </Text>
-                    <Text style={styles.requestCount}>
-                      ({request.recipient.totalRequests} requests)
+          {isLoading ? (
+            <ActivityIndicator size="large" color={theme.colors.textPrimary} />
+          ) : (
+            requests.map((request) => (
+              <View key={request.request_id} style={styles.requestCard}>
+                <View style={styles.recipientInfo}>
+                  <Image
+                    source={{
+                      uri:
+                        request.user?.profile_picture ||
+                        "https://via.placeholder.com/100",
+                    }}
+                    style={styles.recipientImage}
+                  />
+                  <View style={styles.recipientDetails}>
+                    <Text style={styles.recipientName}>
+                      {request.user?.user_name ?? `User ${request.user_id}`}
                     </Text>
                   </View>
                 </View>
-              </View>
 
-              <View style={styles.requestDetails}>
-                <View style={styles.detailRow}>
-                  <Ionicons
-                    name="restaurant"
-                    size={20}
-                    color={theme.colors.textSecondary}
-                  />
-                  <Text style={styles.detailText}>
-                    Requesting {request.quantity}
-                  </Text>
+                <View style={styles.requestDetails}>
+                  <View style={styles.detailRow}>
+                    <Ionicons
+                      name="restaurant"
+                      size={20}
+                      color={theme.colors.textSecondary}
+                    />
+                    <Text style={styles.detailText}>
+                      Requesting {request.requested_quantity}
+                    </Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Ionicons
+                      name="time"
+                      size={20}
+                      color={theme.colors.textSecondary}
+                    />
+                    <Text style={styles.detailText}>{request.pickup_time}</Text>
+                  </View>
+                  <Text style={styles.message}>{request.note}</Text>
                 </View>
-                <View style={styles.detailRow}>
-                  <Ionicons
-                    name="time"
-                    size={20}
-                    color={theme.colors.textSecondary}
-                  />
-                  <Text style={styles.detailText}>{request.timeRequested}</Text>
-                </View>
-                <Text style={styles.message}>{request.message}</Text>
-              </View>
 
-              {request.status === "pending" ? (
-                <View style={styles.actionButtons}>
-                  <Button
-                    title="Approve"
-                    onPress={() => handleRequest(request.id, "approve")}
-                    variant="secondary"
-                  />
-                  <Button
-                    title="Reject"
-                    onPress={() => handleRequest(request.id, "reject")}
-                  />
-                </View>
-              ) : (
-                <View style={styles.statusContainer}>
-                  <Text
-                    style={[
-                      styles.statusText,
-                      request.status === "approved"
-                        ? styles.approvedText
-                        : styles.rejectedText,
-                    ]}
-                  >
-                    {request.status.charAt(0).toUpperCase() +
-                      request.status.slice(1)}
-                  </Text>
-                </View>
-              )}
-            </View>
-          ))}
+                {request.request_status === "waiting" ? (
+                  <View style={styles.actionButtons}>
+                    <Button
+                      title="Approve"
+                      onPress={() =>
+                        handleRequest(request.request_id, "approved")
+                      }
+                      variant="secondary"
+                    />
+                    <Button
+                      title="Reject"
+                      onPress={() =>
+                        handleRequest(request.request_id, "rejected")
+                      }
+                    />
+                  </View>
+                ) : (
+                  <View style={styles.statusContainer}>
+                    <Text
+                      style={[
+                        styles.statusText,
+                        request.request_status === "approved"
+                          ? styles.approvedText
+                          : styles.rejectedText,
+                      ]}
+                    >
+                      {request.request_status.charAt(0).toUpperCase() +
+                        request.request_status.slice(1)}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            ))
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -218,22 +237,6 @@ const styles = StyleSheet.create({
     fontFamily: theme.font.family.bold,
     fontSize: theme.font.size.md,
     marginBottom: theme.spacing.xs,
-  },
-  ratingContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  ratingText: {
-    color: theme.colors.accent,
-    fontFamily: theme.font.family.medium,
-    fontSize: theme.font.size.sm,
-    marginLeft: theme.spacing.xs,
-  },
-  requestCount: {
-    color: theme.colors.textSecondary,
-    fontFamily: theme.font.family.regular,
-    fontSize: theme.font.size.sm,
-    marginLeft: theme.spacing.xs,
   },
   requestDetails: {
     marginBottom: theme.spacing.md,

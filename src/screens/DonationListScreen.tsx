@@ -1,45 +1,27 @@
-"use client"
+"use client";
 
-import type React from "react"
-import { useState, useEffect } from "react"
-import { View, Text, ScrollView, StyleSheet, TextInput, SafeAreaView, TouchableOpacity, Image, Alert } from "react-native"
-import { useNavigation } from "@react-navigation/native"
-import { Ionicons } from "@expo/vector-icons"
-import type { RootNavigationProp } from "../navigation/types"
-import { globalStyles, theme } from "../utils/theme"
+import type React from "react";
+import { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  SafeAreaView,
+  TouchableOpacity,
+  Image,
+  ActivityIndicator,
+} from "react-native";
+import { useNavigation } from "@react-navigation/native";
+import { Ionicons } from "@expo/vector-icons";
+import type { RootNavigationProp } from "../navigation/types";
+import { globalStyles, theme } from "../utils/theme";
+import { getDonations } from "../services/donation";
+import type { Donation } from "../interfaces/donationInterface";
+import { useAuth } from "../context/auth"; // Make sure this is the right path
 
-type IconName = keyof typeof Ionicons.glyphMap
-
-// Mock data - replace with actual data from your backend
-const mockDonations = [
-  {
-    id: "1",
-    title: "Fresh Vegetables",
-    quantity: "5kg",
-    distance: "2.5km",
-    expiryTime: "2 hours",
-    image: "https://images.pexels.com/photos/3872406/pexels-photo-3872406.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
-    category: "Vegetables",
-  },
-  {
-    id: "2",
-    title: "Bread and Pastries",
-    quantity: "10 pieces",
-    distance: "1.8km",
-    expiryTime: "4 hours",
-    image: "https://images.pexels.com/photos/30816577/pexels-photo-30816577/free-photo-of-rustic-artisan-bread-loaf-on-floured-surface.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
-    category: "Bakery",
-  },
-  {
-    id: "3",
-    title: "Canned Goods",
-    quantity: "15 cans",
-    distance: "3.2km",
-    expiryTime: "1 week",
-    image: "https://images.pexels.com/photos/6590914/pexels-photo-6590914.jpeg",
-    category: "Non-perishable",
-  },
-]
+type IconName = keyof typeof Ionicons.glyphMap;
 
 const categories = [
   { id: "all", name: "All", icon: "restaurant" as IconName },
@@ -50,85 +32,68 @@ const categories = [
   { id: "meat", name: "Meat", icon: "pizza" as IconName },
   { id: "non-perishable", name: "Non-perishable", icon: "cube" as IconName },
   { id: "prepared", name: "Prepared Food", icon: "fast-food" as IconName },
-]
+];
 
 const DonationListScreen: React.FC = () => {
-  const navigation = useNavigation<RootNavigationProp>()
-  const [searchQuery, setSearchQuery] = useState("")
-  const [selectedCategory, setSelectedCategory] = useState("all")
-  const [filteredDonations, setFilteredDonations] = useState(mockDonations)
-  const [showDeleteSuccess, setShowDeleteSuccess] = useState(false)
+  const navigation = useNavigation<RootNavigationProp>();
+  const { user } = useAuth(); // <-- Get current user
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [donations, setDonations] = useState<Donation[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Apply filters and search
-    let filtered = [...mockDonations]
-    
-    // Apply search
-    if (searchQuery.trim()) {
-      filtered = filtered.filter(item => 
-        item.title.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    }
-    
-    // Apply category filter
-    if (selectedCategory !== "all") {
-      filtered = filtered.filter(item => item.category.toLowerCase() === selectedCategory)
-    }
-    
-    setFilteredDonations(filtered)
-  }, [searchQuery, selectedCategory])
+    const fetchDonations = async () => {
+      try {
+        const data = await getDonations();
+        setDonations(data);
+      } catch (error) {
+        console.error("Failed to fetch donations", error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const handleDonationPress = (donationId: string) => {
-    navigation.navigate("DonationDetail", { donationId })
-  }
+    fetchDonations();
+  }, []);
 
-  const handleEditPress = (donationId: string) => {
-    navigation.navigate("EditDonation", { donationId })
-  }
+  const filteredDonations = donations.filter((item) => {
+    const matchesSearch = item.title
+      .toLowerCase()
+      .includes(searchQuery.toLowerCase());
 
-  const handleDeletePress = (donationId: string) => {
-    Alert.alert(
-      "Delete Donation",
-      "Are you sure you want to delete this donation?",
-      [
-        {
-          text: "Cancel",
-          style: "cancel"
-        },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => {
-            // Here you would typically make an API call to delete the donation
-            setShowDeleteSuccess(true)
-            setTimeout(() => setShowDeleteSuccess(false), 2000)
-          }
-        }
-      ]
-    )
-  }
+    const matchesCategory =
+      selectedCategory === "all" ||
+      item.category.toLowerCase() === selectedCategory.toLowerCase();
+
+    const isCurrentUser = user ? item.user_id === user.user_id : false;
+
+    return matchesSearch && matchesCategory && isCurrentUser;
+  });
+
+  const handleDonationPress = (donationId: number) => {
+    navigation.navigate("DonationDetail", {
+      donationId: donationId.toString(),
+    });
+  };
 
   return (
     <SafeAreaView style={globalStyles.safeArea}>
       <View style={[globalStyles.container, styles.container]}>
-        {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Ionicons name="arrow-back" size={24} color={theme.colors.textPrimary} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Your Donations</Text>
-          <View style={{ width: 40 }} />
+          <Text style={styles.headerTitle}>Donations</Text>
         </View>
 
-        {/* Search Bar */}
         <View style={styles.searchContainer}>
-          <Ionicons name="search" size={20} color="#999" style={styles.searchIcon} />
+          <Ionicons
+            name="search"
+            size={20}
+            color="#999"
+            style={styles.searchIcon}
+          />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search your donations..."
+            placeholder="Search donations..."
             placeholderTextColor={theme.colors.textTertiary}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -137,10 +102,9 @@ const DonationListScreen: React.FC = () => {
           />
         </View>
 
-        {/* Categories */}
         <View style={styles.categoriesWrapper}>
-          <ScrollView 
-            horizontal 
+          <ScrollView
+            horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.categoriesContainer}
           >
@@ -149,20 +113,28 @@ const DonationListScreen: React.FC = () => {
                 key={category.id}
                 style={[
                   styles.categoryChip,
-                  selectedCategory === category.id && styles.categoryChipSelected
+                  selectedCategory === category.id &&
+                    styles.categoryChipSelected,
                 ]}
                 onPress={() => setSelectedCategory(category.id)}
               >
-                <Ionicons 
-                  name={category.icon} 
-                  size={20} 
-                  color={selectedCategory === category.id ? theme.colors.textPrimary : theme.colors.textSecondary} 
+                <Ionicons
+                  name={category.icon}
+                  size={20}
+                  color={
+                    selectedCategory === category.id
+                      ? theme.colors.textPrimary
+                      : theme.colors.textSecondary
+                  }
                   style={styles.categoryIcon}
                 />
-                <Text style={[
-                  styles.categoryChipText,
-                  selectedCategory === category.id && styles.categoryChipTextSelected
-                ]}>
+                <Text
+                  style={[
+                    styles.categoryChipText,
+                    selectedCategory === category.id &&
+                      styles.categoryChipTextSelected,
+                  ]}
+                >
                   {category.name}
                 </Text>
               </TouchableOpacity>
@@ -170,79 +142,87 @@ const DonationListScreen: React.FC = () => {
           </ScrollView>
         </View>
 
-        {/* Donations List */}
-        <ScrollView 
-          showsVerticalScrollIndicator={false} 
-          contentContainerStyle={styles.scrollContent}
-        >
-          {filteredDonations.map((donation) => (
-            <View key={donation.id} style={styles.donationCard}>
+        {loading ? (
+          <ActivityIndicator
+            size="large"
+            color={theme.colors.textPrimary}
+            style={{ marginTop: 20 }}
+          />
+        ) : (
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}
+          >
+            {filteredDonations.map((donation) => (
               <TouchableOpacity
-                style={styles.donationContent}
-                onPress={() => handleDonationPress(donation.id)}
+                key={donation.donation_id}
+                style={styles.donationCard}
+                onPress={() => handleDonationPress(donation.donation_id)}
               >
-                <Image source={{ uri: donation.image }} style={styles.donationImage} />
-                <View style={styles.donationInfo}>
-                  <Text style={styles.donationTitle}>{donation.title}</Text>
-                  <Text style={styles.donationQuantity}>{donation.quantity}</Text>
-                  <View style={styles.donationMeta}>
-                    <View style={styles.metaItem}>
-                      <Ionicons name="location" size={16} color={theme.colors.textSecondary} />
-                      <Text style={styles.metaText}>{donation.distance}</Text>
-                    </View>
-                    <View style={styles.metaItem}>
-                      <Ionicons name="time" size={16} color={theme.colors.textSecondary} />
-                      <Text style={styles.metaText}>{donation.expiryTime}</Text>
+                <View style={styles.donationContent}>
+                  <Image
+                    source={{ uri: donation.donation_picture }}
+                    style={styles.donationImage}
+                  />
+                  <View style={styles.donationInfo}>
+                    <Text style={styles.donationTitle} numberOfLines={1}>
+                      {donation.title}
+                    </Text>
+                    <Text style={styles.donationStatus}>
+                      {donation.donation_status.charAt(0).toUpperCase() +
+                        donation.donation_status.slice(1)}
+                    </Text>
+                    <Text style={styles.donationQuantity}>
+                      {donation.quantity_value} {donation.quantity_unit}
+                    </Text>
+
+                    <View style={styles.donationMetaRow}>
+                      <View style={styles.metaItemLocation}>
+                        <Ionicons
+                          name="location"
+                          size={16}
+                          color={theme.colors.textSecondary}
+                          style={styles.metaIcon}
+                        />
+                        <Text
+                          style={styles.metaText}
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                        >
+                          {donation.location}
+                        </Text>
+                      </View>
+                      <View style={styles.metaItemDate}>
+                        <Ionicons
+                          name="time"
+                          size={16}
+                          color={theme.colors.textSecondary}
+                          style={styles.metaIcon}
+                        />
+                        <Text style={styles.metaText}>
+                          {new Date(donation.expiry_date).toLocaleDateString()}
+                        </Text>
+                      </View>
                     </View>
                   </View>
                 </View>
               </TouchableOpacity>
-              <View style={styles.actionButtons}>
-                <TouchableOpacity 
-                  style={[styles.actionButton]}
-                  onPress={() => handleEditPress(donation.id)}
-                >
-                  <Text style={styles.actionButtonText}>Edit</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={[styles.actionButton]}
-                  onPress={() => handleDeletePress(donation.id)}
-                >
-                  <Text style={styles.actionButtonTextError}>Delete</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))}
-        </ScrollView>
-
-        {/* Delete Success Toast */}
-        {showDeleteSuccess && (
-          <View style={styles.toast}>
-            <Text style={styles.toastText}>Donation successfully deleted</Text>
-          </View>
+            ))}
+          </ScrollView>
         )}
       </View>
     </SafeAreaView>
-  )
-}
-
+  );
+};
 const styles = StyleSheet.create({
   container: {
     backgroundColor: theme.colors.background,
   },
   header: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: theme.spacing.md,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: theme.colors.backgroundSecondary,
     justifyContent: "center",
     alignItems: "center",
+    marginBottom: theme.spacing.md,
   },
   headerTitle: {
     color: theme.colors.textPrimary,
@@ -320,7 +300,14 @@ const styles = StyleSheet.create({
     color: theme.colors.textPrimary,
     fontFamily: theme.font.family.bold,
     fontSize: theme.font.size.md,
-    marginBottom: theme.spacing.xs,
+    marginBottom: 2,
+  },
+  donationStatus: {
+    color: theme.colors.accent,
+    fontFamily: theme.font.family.medium,
+    fontSize: theme.font.size.sm,
+    marginBottom: 2,
+    textTransform: "capitalize",
   },
   donationQuantity: {
     color: theme.colors.textSecondary,
@@ -328,65 +315,32 @@ const styles = StyleSheet.create({
     fontSize: theme.font.size.sm,
     marginBottom: theme.spacing.sm,
   },
-  donationMeta: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  metaItem: {
+  donationMetaRow: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: theme.spacing.xs,
+  },
+  metaItemLocation: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    marginRight: theme.spacing.sm,
+  },
+  metaItemDate: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexShrink: 0,
+  },
+  metaIcon: {
+    marginRight: 4,
   },
   metaText: {
     color: theme.colors.textSecondary,
     fontFamily: theme.font.family.regular,
     fontSize: theme.font.size.sm,
-    marginLeft: theme.spacing.xs,
+    flexShrink: 1,
   },
-  actionButtons: {
-    flexDirection: "row",
-    padding: theme.spacing.sm,
-    borderTopWidth: 1,
-  },
-  actionButton: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: theme.spacing.sm,
-    borderRadius: theme.borderRadius.md,
-    marginHorizontal: theme.spacing.xs,
-  },
-  actionButtonText: {
-    color: "#1DB954",
-    fontFamily: theme.font.family.medium,
-    fontSize: theme.font.size.md,
-  },
-  actionButtonTextError: {
-    color: "#FF0000",
-    fontFamily: theme.font.family.medium,
-    fontSize: theme.font.size.md,
-  },
-  editButton: {
-    color: "theme.colors.background",
-  },
-  deleteButton: {
-    color: "theme.colors.background",
-  },
-  toast: {
-    position: "absolute",
-    bottom: theme.spacing.xl,
-    left: theme.spacing.xxl,
-    right: theme.spacing.xxl,
-    backgroundColor: "rgba(0, 0, 0, 0.9)",
-    padding: theme.spacing.md,
-    borderRadius: theme.borderRadius.round,
-    alignItems: "center",
-  },
-  toastText: {
-    color: theme.colors.textTertiary,
-    fontFamily: theme.font.family.medium,
-    fontSize: theme.font.size.md,
-  },
-})
+});
 
-export default DonationListScreen 
+export default DonationListScreen;

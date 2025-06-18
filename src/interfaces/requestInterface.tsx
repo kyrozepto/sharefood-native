@@ -11,11 +11,18 @@ export interface RequestItem {
 
 export interface CreateRequestPayload {
   donation_id: number;
-  requested_quantity: string;
+  user_id: number;
   pickup_time: string;
-  note: string;
+  note?: string;
 }
 
 export interface UpdateRequestPayload {
   request_status: string;
+}
+
+export interface RequestItemWithUser extends RequestItem {
+  user?: {
+    user_name: string;
+    email?: string;
+  };
 }

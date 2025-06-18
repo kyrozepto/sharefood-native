@@ -1,16 +1,25 @@
 import type { NavigationProp, RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import type { LatLng } from "react-native-maps";
+import { NavigatorScreenParams } from "@react-navigation/native";
 import { Donation } from "../interfaces/donationInterface";
 
 export type RootStackParamList = {
   Auth: undefined;
-  Main: undefined;
+  Main: NavigatorScreenParams<MainTabParamList>;
   ForgotPassword: undefined;
   DonationDetail: { donationId: string };
   AddDonation: undefined;
   DonationRequests: { donationId: string };
-  PickupDetail: { donationId: string };
-  ReviewRating: { transactionId: string };
+  PickupDetail: { requestId: string };
+  ReviewRating: {
+    donation_id: number;
+    donor_id: number;
+    donor_name: string;
+    item: string;
+    quantity: string;
+  };
+  ReviewList: undefined;
   Notifications: undefined;
   About: undefined;
   FAQ: undefined;
@@ -27,6 +36,7 @@ export type RootStackParamList = {
     donation: Donation;
   };
   DonationActivity: undefined;
+  RequestActivity: undefined;
   DonationList: undefined;
   EditDonation: { donationId: string };
 };
@@ -40,6 +50,7 @@ export type MainTabParamList = {
   Home: undefined;
   Search: undefined;
   Donations: undefined;
+  Requests: undefined;
   Profile: undefined;
 };
 

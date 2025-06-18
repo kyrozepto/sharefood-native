@@ -7,6 +7,7 @@ const multer = require("multer");
 const upload = multer();
 
 router.get("/", ratingController.getRatings);
+router.get("/donor/:donorId", ratingController.getRatingsByDonorId);
 router.get("/:id", ratingController.getRatingById);
 router.post(
   "/",

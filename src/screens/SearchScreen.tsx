@@ -18,10 +18,17 @@ import { Ionicons } from "@expo/vector-icons";
 import type { RootNavigationProp } from "../navigation/types";
 import { globalStyles, theme } from "../utils/theme";
 import Button from "../components/Button";
-import { getDonations } from "../services/donation"; // Update path
-import type { Donation } from "../interfaces/donationInterface"; // Update path
+import { getDonations } from "../services/donation";
+import { useAuth } from "../context/auth";
+import type { Donation } from "../interfaces/donationInterface";
 
 type IconName = keyof typeof Ionicons.glyphMap;
+
+// Fixed location coordinates
+const FIXED_LOCATION = {
+  latitude: -7.332593,
+  longitude: 112.788228,
+};
 
 const categories = [
   { id: "all", name: "All", icon: "restaurant" as IconName },
@@ -45,23 +52,118 @@ const sortOptions = [
   { id: "expiry", label: "Kadaluarsa Terlama", icon: "hourglass" as IconName },
 ];
 
+// Function to calculate distance between two coordinates using Haversine formula
+const calculateDistance = (
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number => {
+  const R = 6371; // Radius of the Earth in kilometers
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) *
+      Math.cos(lat2 * (Math.PI / 180)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const distance = R * c; // Distance in kilometers
+  return distance;
+};
+
+// Function to parse location string and return coordinates
+const parseLocation = (
+  locationString: string
+): { lat: number; lng: number } | null => {
+  if (!locationString || typeof locationString !== "string") {
+    return null;
+  }
+
+  const parts = locationString.split(",");
+  if (parts.length !== 2) {
+    return null;
+  }
+
+  const lat = parseFloat(parts[0].trim());
+  const lng = parseFloat(parts[1].trim());
+
+  if (isNaN(lat) || isNaN(lng)) {
+    return null;
+  }
+
+  return { lat, lng };
+};
+
+const getStatusColor = (status: string) => {
+  switch (status.toLowerCase()) {
+    case "available":
+      return "#4caf50";
+    case "confirmed":
+      return "#2196f3";
+    case "completed":
+      return "#9e9e9e";
+    case "cancelled":
+      return "#f44336";
+    default:
+      return theme.colors.textSecondary;
+  }
+};
+
+interface DonationWithDistance extends Donation {
+  distance?: number;
+}
+
 const SearchScreen: React.FC = () => {
   const navigation = useNavigation<RootNavigationProp>();
-  const [donations, setDonations] = useState<Donation[]>([]);
-  const [filteredItems, setFilteredItems] = useState<Donation[]>([]);
+  const [donations, setDonations] = useState<DonationWithDistance[]>([]);
+  const [filteredItems, setFilteredItems] = useState<DonationWithDistance[]>(
+    []
+  );
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
-
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedSort, setSelectedSort] = useState("distance");
   const [maxDistance, setMaxDistance] = useState("10");
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
 
+  const capitalize = (text: string) =>
+    text.charAt(0).toUpperCase() + text.slice(1);
+
   useEffect(() => {
     const fetchData = async () => {
       try {
         const data = await getDonations();
-        setDonations(data);
+        // Calculate distance for each donation
+        const donationsWithDistance: DonationWithDistance[] = data.map(
+          (donation: Donation) => {
+            let distance = 0;
+
+            // Parse the location string to get coordinates
+            const coordinates = parseLocation(donation.location);
+
+            if (coordinates) {
+              distance = calculateDistance(
+                FIXED_LOCATION.latitude,
+                FIXED_LOCATION.longitude,
+                coordinates.lat,
+                coordinates.lng
+              );
+            } else {
+              // If no valid coordinates, assign a high distance or handle as needed
+              distance = 999; // High distance to push it to the end when sorting by distance
+            }
+
+            return {
+              ...donation,
+              distance: Math.round(distance * 10) / 10, // Round to 1 decimal place
+            };
+          }
+        );
+
+        setDonations(donationsWithDistance);
       } catch (error) {
         console.error("Error fetching donations:", error);
       } finally {
@@ -80,20 +182,33 @@ const SearchScreen: React.FC = () => {
       );
     }
 
+    if (user?.user_id) {
+      filtered = filtered.filter((item) => item.user_id !== user.user_id);
+    }
+
     if (selectedCategory !== "all") {
       filtered = filtered.filter(
         (item) => item.category?.toLowerCase() === selectedCategory
       );
     }
 
-    // Simulate distance filter (replace with real logic when you have coordinates)
     filtered = filtered.filter(
-      () => Math.random() * 10 <= parseFloat(maxDistance)
+      (item) => item.donation_status?.toLowerCase() === "available"
     );
+
+    // Filter by distance
+    const maxDistanceNum = parseFloat(maxDistance);
+    if (!isNaN(maxDistanceNum)) {
+      filtered = filtered.filter(
+        (item) => (item.distance || 0) <= maxDistanceNum
+      );
+    }
 
     // Sorting logic
     filtered.sort((a, b) => {
       switch (selectedSort) {
+        case "distance":
+          return (a.distance || 0) - (b.distance || 0);
         case "quantity":
           return b.quantity_value - a.quantity_value;
         case "expiry":
@@ -110,10 +225,18 @@ const SearchScreen: React.FC = () => {
       }
     });
 
-    setFilteredItems(filtered);
-  }, [searchQuery, selectedCategory, selectedSort, maxDistance, donations]);
+    const finalItems = searchQuery.trim() ? filtered : filtered.slice(0, 10);
+    setFilteredItems(finalItems);
+  }, [
+    searchQuery,
+    selectedCategory,
+    selectedSort,
+    maxDistance,
+    donations,
+    user,
+  ]);
 
-  const handleFoodItemPress = (item: Donation) => {
+  const handleFoodItemPress = (item: DonationWithDistance) => {
     navigation.navigate("DonationDetail", {
       donationId: item.donation_id.toString(),
     });
@@ -213,54 +336,103 @@ const SearchScreen: React.FC = () => {
           </ScrollView>
         </View>
 
-        {/* Food Items List */}
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
-          {filteredItems.map((item) => (
-            <TouchableOpacity
-              key={item.donation_id}
-              style={styles.foodCard}
-              onPress={() => handleFoodItemPress(item)}
-            >
-              <Image
-                source={{
-                  uri:
-                    item.donation_picture || "https://via.placeholder.com/100",
-                }}
-                style={styles.foodImage}
-              />
-              <View style={styles.foodInfo}>
-                <Text style={styles.foodTitle}>{item.title}</Text>
-                <Text style={styles.foodQuantity}>
-                  {item.quantity_value} {item.quantity_unit}
-                </Text>
-                <View style={styles.foodMeta}>
-                  <View style={styles.metaItem}>
-                    <Ionicons
-                      name="location"
-                      size={16}
-                      color={theme.colors.textSecondary}
-                    />
-                    <Text style={styles.metaText}>
-                      ~{(Math.random() * 10) | 0}km
+          {filteredItems.map((item) => {
+            const status = item.donation_status?.toLowerCase() || "unknown";
+            const displayStatus = capitalize(status);
+
+            return (
+              <TouchableOpacity
+                key={item.donation_id}
+                style={styles.foodCard}
+                onPress={() => handleFoodItemPress(item)}
+              >
+                <Image
+                  source={{
+                    uri:
+                      item.donation_picture ||
+                      "https://via.placeholder.com/100",
+                  }}
+                  style={styles.foodImage}
+                />
+                <View style={styles.foodInfo}>
+                  <View style={styles.statusTitle}>
+                    <Text
+                      style={styles.foodTitle}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
+                      {item.title}
                     </Text>
+                    <View
+                      style={[
+                        styles.statusBadge,
+                        {
+                          backgroundColor: getStatusColor(status),
+                          marginLeft: 8,
+                        },
+                      ]}
+                    >
+                      <Text style={styles.statusText}>{displayStatus}</Text>
+                    </View>
                   </View>
-                  <View style={styles.metaItem}>
-                    <Ionicons
-                      name="time"
-                      size={16}
-                      color={theme.colors.textSecondary}
-                    />
-                    <Text style={styles.metaText}>
-                      {new Date(item.expiry_date).toLocaleDateString()}
-                    </Text>
+
+                  <Text style={styles.foodQuantity}>
+                    {item.quantity_value} {item.quantity_unit}
+                  </Text>
+                  <View style={styles.foodMeta}>
+                    <View style={styles.metaItem}>
+                      <Ionicons
+                        name="location"
+                        size={16}
+                        color={theme.colors.textSecondary}
+                      />
+                      <Text style={styles.metaText}>
+                        {item.distance !== undefined && item.distance < 999
+                          ? `${item.distance} km`
+                          : "Location unavailable"}
+                      </Text>
+                    </View>
+                    <View
+                      style={[
+                        styles.metaItem,
+                        { marginLeft: theme.spacing.md },
+                      ]}
+                    >
+                      <Ionicons
+                        name="time"
+                        size={16}
+                        color={theme.colors.textSecondary}
+                      />
+                      <Text style={styles.metaText}>
+                        {new Date(item.expiry_date).toLocaleDateString()}
+                      </Text>
+                    </View>
                   </View>
                 </View>
-              </View>
-            </TouchableOpacity>
-          ))}
+              </TouchableOpacity>
+            );
+          })}
+
+          {filteredItems.length === 0 && !loading && (
+            <View style={styles.emptyState}>
+              <Ionicons
+                name="search"
+                size={64}
+                color={theme.colors.textTertiary}
+                style={{ marginBottom: theme.spacing.md }}
+              />
+              <Text style={styles.emptyStateText}>
+                No food items found within {maxDistance}km
+              </Text>
+              <Text style={styles.emptyStateSubtext}>
+                Try increasing the maximum distance or adjusting your filters
+              </Text>
+            </View>
+          )}
         </ScrollView>
 
         {/* Filter Modal */}
@@ -323,6 +495,12 @@ const SearchScreen: React.FC = () => {
                 Maximum Distance (km)
               </Text>
               <View style={styles.distanceInputContainer}>
+                <Ionicons
+                  name="location"
+                  size={20}
+                  color={theme.colors.textSecondary}
+                  style={styles.distanceInputIcon}
+                />
                 <TextInput
                   style={styles.distanceInput}
                   value={maxDistance}
@@ -434,10 +612,12 @@ const styles = StyleSheet.create({
     padding: theme.spacing.md,
   },
   foodTitle: {
+    flexShrink: 1,
+    flexGrow: 1,
+    minWidth: 0,
     color: theme.colors.textPrimary,
     fontFamily: theme.font.family.bold,
     fontSize: theme.font.size.md,
-    marginBottom: theme.spacing.xs,
   },
   foodQuantity: {
     color: theme.colors.textSecondary,
@@ -458,6 +638,25 @@ const styles = StyleSheet.create({
     fontFamily: theme.font.family.regular,
     fontSize: theme.font.size.sm,
     marginLeft: theme.spacing.xs,
+  },
+  emptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: theme.spacing.xxxl,
+    paddingHorizontal: theme.spacing.lg,
+  },
+  emptyStateText: {
+    color: theme.colors.textPrimary,
+    fontFamily: theme.font.family.medium,
+    fontSize: theme.font.size.lg,
+    textAlign: "center",
+    marginBottom: theme.spacing.sm,
+  },
+  emptyStateSubtext: {
+    color: theme.colors.textSecondary,
+    fontFamily: theme.font.family.regular,
+    fontSize: theme.font.size.md,
+    textAlign: "center",
   },
   modalOverlay: {
     flex: 1,
@@ -533,6 +732,23 @@ const styles = StyleSheet.create({
     padding: theme.spacing.md,
     fontFamily: theme.font.family.regular,
     fontSize: theme.font.size.md,
+  },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignSelf: "flex-start",
+  },
+  statusText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  statusTitle: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "nowrap",
+    maxWidth: "100%",
   },
 });
 

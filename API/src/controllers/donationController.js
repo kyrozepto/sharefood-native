@@ -1,5 +1,6 @@
 const Donation = require("../models/Donation");
 const { imageUpload } = require("../utils/ImageKit.js");
+const { sendNotification } = require("../utils/sendNotification.js");
 
 async function getDonations(req, res) {
   try {
@@ -56,7 +57,7 @@ async function createDonation(req, res) {
       return res.status(400).json({ message: "Lokasi wajib diisi." });
     if (!quantity_value || isNaN(quantity_value))
       return res.status(400).json({ message: "Jumlah wajib diisi." });
-    if (!["kg", "g", "liter", "ml", "pcs", "pack"].includes(quantity_unit))
+    if (!["kg", "g", "liter", "ml"].includes(quantity_unit))
       return res.status(400).json({ message: "Satuan tidak valid." });
     if (
       ![
@@ -77,24 +78,55 @@ async function createDonation(req, res) {
 
     const photoUrl = req.file ? await imageUpload(req.file) : null;
 
+    let quantityInKg;
+
+    switch (quantity_unit) {
+      case "kg":
+        quantityInKg = parseFloat(quantity_value);
+        break;
+      case "g":
+        quantityInKg = parseFloat(quantity_value) / 1000;
+        break;
+      case "liter":
+        quantityInKg = parseFloat(quantity_value);
+        break;
+      case "ml":
+        quantityInKg = parseFloat(quantity_value) / 1000;
+        break;
+      default:
+        return res.status(400).json({ message: "Satuan tidak valid." });
+    }
+
+    if (isNaN(quantityInKg) || quantityInKg <= 0)
+      return res.status(400).json({ message: "Jumlah tidak valid." });
+
     const donationData = {
       user_id,
       title,
       description,
       location,
-      quantity_value,
-      quantity_unit,
+      quantity_value: quantityInKg,
+      quantity_unit: "kg",
       expiry_date,
       category,
       donation_picture: photoUrl || null,
       donation_status: "available",
     };
 
-    Donation.CreateDonation(donationData, (err, newDonation) => {
+    Donation.createDonation(donationData, (err, newDonation) => {
       if (err)
         return res
           .status(500)
           .json({ message: "Gagal membuat donasi", error: err });
+
+      sendNotification({
+        user_id,
+        type: "donation_created",
+        title: "Donation Created",
+        message: `Your donation "${title}" has been successfully created.`,
+        data: { donation_id: newDonation.donation_id },
+      });
+
       res.status(201).json(newDonation);
     });
   } catch (error) {
@@ -123,7 +155,7 @@ async function updateDonation(req, res) {
       }
 
       if (req.file) {
-        const uploadedUrl = await imageUpload(req.file); // ✅ Upload to ImageKit
+        const uploadedUrl = await imageUpload(req.file);
         updatedFields.donation_picture = uploadedUrl;
       }
 
@@ -138,6 +170,16 @@ async function updateDonation(req, res) {
           return res
             .status(500)
             .json({ message: "Gagal update donasi", error: err });
+
+        if (statusToUpdate === "completed") {
+          sendNotification({
+            user_id: donation.user_id,
+            type: "donation_completed",
+            title: "Donation Marked as Completed",
+            message: `Your donation "${donation.title}" has been marked as completed.`,
+            data: { donation_id: donation.donation_id },
+          });
+        }
 
         res.status(200).json({ message: "Donasi berhasil diperbarui" });
       });

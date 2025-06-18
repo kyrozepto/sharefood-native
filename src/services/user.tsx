@@ -2,6 +2,11 @@ import { User } from "../interfaces/userInterface";
 
 const BASE_URL = "http://10.0.2.2:5000";
 
+export const getUsers = async () => {
+  const response = await fetch(`${BASE_URL}/api/users`);
+  return response.json();
+};
+
 export const getUserById = async (
   userId: number,
   token: string

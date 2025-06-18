@@ -15,8 +15,16 @@ export const getRequests = async (): Promise<RequestItem[]> => {
   return response.json();
 };
 
-export const getRequestById = async (id: number): Promise<RequestItem> => {
-  const response = await fetch(`${BASE_URL}/api/request/${id}`);
+// services/request.ts
+export const getRequestById = async (
+  requestId: number,
+  token: string
+): Promise<RequestItem> => {
+  const response = await fetch(`${BASE_URL}/api/request/${requestId}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
 
   if (!response.ok) {
     const error = await response.json();

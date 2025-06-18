@@ -1,117 +1,140 @@
-"use client"
+"use client";
 
-import type React from "react"
-import { useState } from "react"
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, TextInput } from "react-native"
-import { useNavigation, useRoute } from "@react-navigation/native"
-import { Ionicons } from "@expo/vector-icons"
-import type { RootNavigationProp, RootRouteProp } from "../navigation/types"
-import { globalStyles, theme } from "../utils/theme"
-import Button from "../components/Button"
-
-// Mock data - replace with actual data from your backend
-const mockTransaction = {
-  id: "1",
-  type: "donation", // or "request"
-  otherParty: {
-    name: "Alice Smith",
-    role: "recipient", // or "donor"
-  },
-  item: "Fresh Vegetables",
-  quantity: "5kg",
-}
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  SafeAreaView,
+  ScrollView,
+  TextInput,
+  Alert,
+} from "react-native";
+import { useNavigation, useRoute } from "@react-navigation/native";
+import { Ionicons } from "@expo/vector-icons";
+import type { RootNavigationProp, RootRouteProp } from "../navigation/types";
+import { globalStyles, theme } from "../utils/theme";
+import Button from "../components/Button";
+import { createRating } from "../services/rating";
+import { useAuth } from "../context/auth";
 
 const ReviewRatingScreen: React.FC = () => {
-  const navigation = useNavigation<RootNavigationProp>()
-  const route = useRoute<RootRouteProp<"ReviewRating">>()
-  const [rating, setRating] = useState(0)
-  const [review, setReview] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
+  const navigation = useNavigation<RootNavigationProp>();
+  const route = useRoute<RootRouteProp<"ReviewRating">>();
+
+  const { token } = useAuth();
+  const { donation_id, item, quantity, donor_name } = route.params;
+
+  const [rating, setRating] = useState(0);
+  const [review, setReview] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async () => {
-    if (rating === 0) return
-
-    setIsLoading(true)
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-      navigation.navigate("Main")
-    } catch (error) {
-      // Handle error
-    } finally {
-      setIsLoading(false)
+    if (!rating || !donation_id || !token) {
+      Alert.alert("Error", "Rating and donation ID are required.");
+      return;
     }
-  }
+
+    setIsLoading(true);
+    try {
+      await createRating(
+        {
+          donation_id: Number(donation_id),
+          rate: rating,
+          review: review.trim(),
+        },
+        token
+      );
+
+      Alert.alert("Success", "Your rating has been submitted.");
+
+      // ✅ Navigate to Home tab inside Main stack
+      navigation.navigate("Main", {
+        screen: "Home",
+      });
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Failed to submit rating.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <SafeAreaView style={globalStyles.safeArea}>
       <ScrollView style={globalStyles.container}>
+        {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity 
-            style={styles.backButton}
+          <TouchableOpacity
             onPress={() => navigation.goBack()}
+            style={styles.backButton}
           >
-            <Ionicons name="arrow-back" size={24} color={theme.colors.textPrimary} />
+            <Ionicons
+              name="arrow-back"
+              size={24}
+              color={theme.colors.textPrimary}
+            />
           </TouchableOpacity>
           <Text style={styles.title}>Rate & Review</Text>
           <View style={{ width: 24 }} />
         </View>
 
-        <View style={styles.content}>
-          <View style={styles.transactionInfo}>
-            <Text style={styles.infoText}>
-              {mockTransaction.type === "donation" ? "You donated" : "You received"}{" "}
-              <Text style={styles.highlight}>{mockTransaction.quantity}</Text> of{" "}
-              <Text style={styles.highlight}>{mockTransaction.item}</Text>
-            </Text>
-            <Text style={styles.infoText}>
-              {mockTransaction.otherParty.role === "recipient" ? "to" : "from"}{" "}
-              <Text style={styles.highlight}>{mockTransaction.otherParty.name}</Text>
-            </Text>
-          </View>
+        {/* Transaction Info */}
+        <View style={styles.transactionInfo}>
+          <Text style={styles.infoText}>
+            You received <Text style={styles.highlight}>{quantity}</Text> of{" "}
+            <Text style={styles.highlight}>{item}</Text>
+          </Text>
+          <Text style={styles.infoText}>
+            from <Text style={styles.highlight}>{donor_name}</Text>
+          </Text>
+        </View>
 
-          <View style={styles.ratingContainer}>
-            <Text style={styles.ratingTitle}>How was your experience?</Text>
-            <View style={styles.starsContainer}>
-              {[1, 2, 3, 4, 5].map((star) => (
-                <TouchableOpacity
-                  key={star}
-                  onPress={() => setRating(star)}
-                  style={styles.starButton}
-                >
-                  <Ionicons
-                    name={star <= rating ? "star" : "star-outline"}
-                    size={32}
-                    color={star <= rating ? theme.colors.accent : theme.colors.textSecondary}
-                  />
-                </TouchableOpacity>
-              ))}
-            </View>
+        {/* Rating Stars */}
+        <View style={styles.ratingContainer}>
+          <Text style={styles.ratingTitle}>How was your experience?</Text>
+          <View style={styles.starsContainer}>
+            {[1, 2, 3, 4, 5].map((star) => (
+              <TouchableOpacity key={star} onPress={() => setRating(star)}>
+                <Ionicons
+                  name={star <= rating ? "star" : "star-outline"}
+                  size={32}
+                  color={
+                    star <= rating
+                      ? theme.colors.accent
+                      : theme.colors.textSecondary
+                  }
+                />
+              </TouchableOpacity>
+            ))}
           </View>
+        </View>
 
-          <View style={styles.reviewContainer}>
-            <Text style={styles.reviewTitle}>Write a review (optional)</Text>
-            <TextInput
-              style={styles.reviewInput}
-              placeholder="Share your experience..."
-              placeholderTextColor={theme.colors.textTertiary}
-              value={review}
-              onChangeText={setReview}
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-            />
-          </View>
-
-          <Button 
-            title={isLoading ? "Submitting..." : "Submit Review"} 
-            onPress={handleSubmit}
-            disabled={isLoading || rating === 0}
+        {/* Review Text */}
+        <View style={styles.reviewContainer}>
+          <Text style={styles.reviewTitle}>Write a review (optional)</Text>
+          <TextInput
+            style={styles.reviewInput}
+            placeholder="Share your experience..."
+            placeholderTextColor={theme.colors.textTertiary}
+            multiline
+            value={review}
+            onChangeText={setReview}
+            numberOfLines={4}
+            textAlignVertical="top"
           />
         </View>
+
+        {/* Submit Button */}
+        <Button
+          title={isLoading ? "Submitting..." : "Submit Review"}
+          onPress={handleSubmit}
+          disabled={isLoading || rating === 0}
+        />
       </ScrollView>
     </SafeAreaView>
-  )
-}
+  );
+};
 
 const styles = StyleSheet.create({
   header: {
@@ -132,9 +155,6 @@ const styles = StyleSheet.create({
     color: theme.colors.textPrimary,
     fontFamily: theme.font.family.bold,
     fontSize: theme.font.size.xl,
-  },
-  content: {
-    paddingHorizontal: theme.spacing.md,
   },
   transactionInfo: {
     backgroundColor: theme.colors.backgroundSecondary,
@@ -167,9 +187,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
   },
-  starButton: {
-    padding: theme.spacing.xs,
-  },
   reviewContainer: {
     marginBottom: theme.spacing.xl,
   },
@@ -188,6 +205,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     height: 120,
   },
-})
+});
 
-export default ReviewRatingScreen 
+export default ReviewRatingScreen;

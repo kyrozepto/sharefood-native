@@ -28,6 +28,7 @@ export const registerUser = async (
 
   if (!res.ok) {
     const error = await res.json();
+    console.log("res: ", error.message);
     throw new Error(error.message || "Registration failed");
   }
 

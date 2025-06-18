@@ -19,7 +19,7 @@ interface RegisterPayload {
   email: string;
   phone: string;
   password: string;
-  user_type: "donor" | "recipient";
+  user_type: "donor" | "receiver";
 }
 
 interface RegisterResponse {

@@ -1,13 +1,15 @@
 const Request = require("../models/Request");
 const Donation = require("../models/Donation");
-const db = require("../config/db");
+const Notification = require("../models/Notification");
+const pool = require("../config/db");
 
 async function getRequests(req, res) {
   try {
     Request.getRequests((err, results) => {
       if (err) {
-        res.status(500).json({ message: "Error fetching data", error: err });
-        return;
+        return res
+          .status(500)
+          .json({ message: "Error fetching data", error: err });
       }
       res.json(results);
     });
@@ -19,17 +21,14 @@ async function getRequests(req, res) {
 async function getRequestById(req, res) {
   try {
     const { id } = req.params;
-
-    Request.getRequestById(id, (err, user) => {
-      if (err) {
+    Request.getRequestById(id, (err, request) => {
+      if (err)
         return res
           .status(500)
-          .json({ message: "Error fetching user", error: err });
-      }
-      if (!user) {
+          .json({ message: "Error fetching request", error: err });
+      if (!request)
         return res.status(404).json({ message: "Request not found" });
-      }
-      res.status(200).json(user);
+      res.status(200).json(request);
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -38,132 +37,118 @@ async function getRequestById(req, res) {
 
 async function createRequest(req, res) {
   try {
-    const { donation_id, requested_quantity, pickup_time, note } = req.body;
-    const user_id = req.user.user_id;
+    const requestData = Object.fromEntries(Object.entries(req.body));
+    Request.createRequest(requestData, (err, createdRequest) => {
+      if (err)
+        return res
+          .status(500)
+          .json({ message: "Gagal membuat permintaan", error: err });
 
-    // Validation
-    if (!donation_id || donation_id.length > 255) {
-      return res.status(400).json({
-        message: "ID donasi harus diisi dan maksimal 255 karakter",
+      Donation.getDonationById(createdRequest.donation_id, (err, donation) => {
+        if (!err && donation) {
+          const notif = {
+            user_id: donation.user_id,
+            type: "request",
+            title: "Permintaan Donasi Baru",
+            message: `Donasi '${donation.title}' telah diminta oleh pengguna.`,
+            data: JSON.stringify({
+              donation_id: donation.donation_id,
+              request_id: createdRequest.request_id,
+            }),
+          };
+          Notification.create(notif, () => {});
+        }
       });
-    }
 
-    const donationExists = await new Promise((resolve, reject) => {
-      const query = "SELECT 1 FROM donations WHERE donation_id = ?";
-      db.query(query, [donation_id], (err, results) => {
-        if (err) return reject(err);
-        resolve(results.length > 0);
-      });
-    });
-
-    if (!donationExists) {
-      return res.status(400).json({
-        message: "Donasi tidak ditemukan. Pastikan ID donasi valid.",
-      });
-    }
-
-    if (!requested_quantity || requested_quantity.length > 100) {
-      return res.status(400).json({
-        message: "Jumlah permintaan harus diisi dan maksimal 100 karakter",
-      });
-    }
-
-    if (!pickup_time) {
-      return res.status(400).json({ message: "Waktu pengambilan harus diisi" });
-    }
-
-    if (!note || note.length > 1000) {
-      return res.status(400).json({
-        message: "Catatan harus diisi dan maksimal 1000 karakter",
-      });
-    }
-
-    const requestData = {
-      user_id,
-      donation_id,
-      requested_quantity,
-      pickup_time,
-      note,
-    };
-
-    Request.CreateRequest(requestData, (err, newRequest) => {
-      if (err) {
-        return res.status(500).json({
-          message: "Gagal membuat request",
-          error: err,
-        });
-      }
-      res.status(201).json(newRequest);
+      res.status(201).json(createdRequest);
     });
   } catch (error) {
-    console.error("Create request error:", error);
-    res.status(500).json({
-      message: "Terjadi kesalahan saat membuat request",
-      error: error.message,
-    });
+    res.status(500).json({ message: error.message });
   }
 }
 
 async function updateRequest(req, res) {
   try {
     const { id } = req.params;
-    const { request_status } = req.body;
+    const data = Object.fromEntries(Object.entries(req.body));
 
-    if (!request_status)
-      return res.status(400).json({ message: "request_status harus diisi" });
+    Request.getRequestById(id, (getErr, existingRequest) => {
+      if (getErr || !existingRequest) {
+        return res.status(404).json({ message: "Permintaan tidak ditemukan" });
+      }
 
-    Request.getRequestById(id, async (err, request) => {
-      if (err || !request)
-        return res.status(404).json({ message: "Request tidak ditemukan" });
-
-      if (request_status === "completed") {
-        const [valueStr] = request.requested_quantity.split(" ");
-        const value = parseFloat(valueStr);
-
-        if (isNaN(value)) {
+      Request.updateRequest(id, data, (err, updatedRequest) => {
+        if (err)
           return res
-            .status(400)
-            .json({ message: "Format requested_quantity tidak valid" });
+            .status(500)
+            .json({ message: "Gagal memperbarui permintaan", error: err });
+
+        if (data.request_status === "approved") {
+          Request.rejectOthersExcept(id, updatedRequest.donation_id, (err) => {
+            if (err) console.error("Gagal menolak permintaan lainnya:", err);
+          });
         }
 
-        Donation.getDonationById(request.donation_id, (err, donation) => {
-          if (err || !donation) {
-            return res.status(404).json({ message: "Donasi tidak ditemukan" });
-          }
-
-          let newQty = parseFloat(donation.quantity_value) - value;
-          if (newQty < 0) newQty = 0;
-
+        if (
+          data.request_status === "canceled" &&
+          existingRequest.request_status === "approved"
+        ) {
           Donation.updateDonation(
-            request.donation_id,
-            { quantity_value: newQty },
+            updatedRequest.donation_id,
+            { donation_status: "available" },
             (err) => {
-              if (err)
-                return res
-                  .status(500)
-                  .json({ message: "Gagal mengurangi jumlah donasi" });
-
-              Request.updateRequest(id, { request_status }, (err) => {
-                if (err)
-                  return res
-                    .status(500)
-                    .json({ message: "Gagal mengupdate request" });
-                res.status(200).json({
-                  message: "Request diselesaikan dan donasi dikurangi",
-                });
-              });
+              if (err) console.error("Gagal mengubah status donasi:", err);
             }
           );
-        });
-      } else {
-        Request.updateRequest(id, { request_status }, (err) => {
-          if (err)
-            return res
-              .status(500)
-              .json({ message: "Gagal mengupdate request" });
-          res.status(200).json({ message: "Status request diperbarui" });
-        });
-      }
+        }
+
+        if (
+          ["approved", "canceled", "rejected"].includes(data.request_status)
+        ) {
+          Donation.getDonationById(
+            updatedRequest.donation_id,
+            (err, donation) => {
+              if (!err && donation) {
+                const donorId = donation.user_id;
+                const statusMap = {
+                  approved: "Disetujui",
+                  canceled: "Dibatalkan",
+                  rejected: "Ditolak",
+                };
+                const statusText =
+                  statusMap[data.request_status] || data.request_status;
+
+                pool.query(
+                  `SELECT user_name FROM users WHERE user_id = $1`,
+                  [donorId],
+                  (userErr, userRes) => {
+                    const donorName =
+                      !userErr && userRes.rows[0]
+                        ? userRes.rows[0].user_name
+                        : "donor";
+
+                    const notif = {
+                      user_id: updatedRequest.user_id,
+                      type: "request_update",
+                      title: `Permintaan Anda ${statusText}`,
+                      message: `Permintaan untuk '${
+                        donation.title
+                      }' telah ${statusText.toLowerCase()} oleh ${donorName}.`,
+                      data: JSON.stringify({
+                        donation_id: donation.donation_id,
+                        request_id: updatedRequest.request_id,
+                      }),
+                    };
+                    Notification.create(notif, () => {});
+                  }
+                );
+              }
+            }
+          );
+        }
+
+        res.status(200).json(updatedRequest);
+      });
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

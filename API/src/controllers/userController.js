@@ -37,8 +37,9 @@ async function getUserById(req, res) {
 
 async function createUser(req, res) {
   try {
-    const { user_name, password, phone, email, user_type } = req.body;
-    console.log("body: ", req);
+    const { user_name, password, phone, email, user_type, profile_picture } =
+      req.body;
+    console.log("body: ", req.body);
 
     // Validation
     if (!user_name || user_name.length > 255) {
@@ -53,13 +54,10 @@ async function createUser(req, res) {
       });
     }
 
-    const passwordRegex =
-      /^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&_])[A-Za-z\d@$!%*?&_]+$/;
-
+    const passwordRegex = /^(?=.*[A-Z]).+$/;
     if (!passwordRegex.test(password)) {
       return res.status(400).json({
-        message:
-          "Password harus mengandung setidaknya satu huruf besar, satu angka, dan satu simbol",
+        message: "Password harus mengandung setidaknya satu huruf besar",
       });
     }
 
@@ -86,6 +84,7 @@ async function createUser(req, res) {
       });
     }
 
+    // Build user data object (optional profile_picture)
     const userData = {
       user_name,
       password,
@@ -94,16 +93,23 @@ async function createUser(req, res) {
       user_type,
     };
 
+    if (profile_picture) {
+      userData.profile_picture = profile_picture; // ✅ Only added if exists
+    }
+
+    // Insert user
     User.createUser(userData, (err, newUser) => {
-      if (err)
+      if (err) {
+        console.error("CreateUser DB Error:", err);
         return res
           .status(500)
           .json({ message: "Error creating user", error: err });
+      }
       res.status(201).json(newUser);
     });
   } catch (error) {
+    console.error("Exception during createUser:", error);
     res.status(400).json({ message: error.message });
-    console.log("error: ", error);
   }
 }
 

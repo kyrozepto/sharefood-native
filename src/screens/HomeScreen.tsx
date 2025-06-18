@@ -20,6 +20,7 @@ import { Donation } from "../interfaces/donationInterface";
 import { RequestItem } from "../interfaces/requestInterface";
 import { getDonations } from "../services/donation";
 import { getRequests } from "../services/request";
+import { getNotificationsByUserId } from "../services/notification";
 
 const getStatusColor = (status: string) => {
   switch (status.toLowerCase()) {
@@ -29,7 +30,7 @@ const getStatusColor = (status: string) => {
       return "#2196f3";
     case "completed":
       return "#9e9e9e";
-    case "cancelled":
+    case "canceled":
       return "#f44336";
     default:
       return theme.colors.textSecondary;
@@ -45,7 +46,9 @@ const HomeScreen: React.FC = () => {
   const [requests, setRequests] = useState<RequestItem[]>([]);
   const [donationCount, setDonationCount] = useState(0);
   const [requestCount, setRequestCount] = useState(0);
+  const [impactQuantity, setImpactQuantity] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const capitalize = (text: string) =>
     text.charAt(0).toUpperCase() + text.slice(1);
@@ -62,27 +65,60 @@ const HomeScreen: React.FC = () => {
         try {
           const userId = user.user_id;
 
-          const [donationList, requestList] = await Promise.all([
+          const [donationList, requestList, notifications] = await Promise.all([
             getDonations(),
             getRequests(),
+            getNotificationsByUserId(userId, token),
           ]);
 
-          const sorted = donationList.sort(
-            (a, b) =>
-              new Date(b.created_at).getTime() -
-              new Date(a.created_at).getTime()
-          );
+          const unread = notifications.filter((n) => !n.is_read);
+          setUnreadCount(unread.length);
 
           const userDonations = donationList.filter(
-            (donation) => donation.user_id === userId
+            (donation) => Number(donation.user_id) === Number(userId)
           );
+
+          const otherUserDonations = donationList.filter(
+            (donation) =>
+              Number(donation.user_id) !== Number(userId) &&
+              donation.donation_status.toLowerCase() === "available"
+          );
+
+          if (userRole === "donor") {
+            const sorted = userDonations.sort(
+              (a, b) =>
+                new Date(b.created_at).getTime() -
+                new Date(a.created_at).getTime()
+            );
+            setRecentDonations(sorted.slice(0, 3));
+          } else {
+            const sorted = otherUserDonations.sort(
+              (a, b) =>
+                new Date(b.created_at).getTime() -
+                new Date(a.created_at).getTime()
+            );
+            setRecentDonations(sorted.slice(0, 3));
+          }
+
           const userRequests = requestList.filter(
-            (request) => request.user_id === userId
+            (request) => Number(request.user_id) === Number(userId)
           );
 
           setDonationCount(userDonations.length);
           setRequestCount(userRequests.length);
-          setRecentDonations(sorted.slice(0, 3));
+
+          const completed = userDonations.filter(
+            (donation) => donation.donation_status === "completed"
+          );
+          const totalImpact = completed.reduce((sum, d) => {
+            const value =
+              typeof d.quantity_value === "number"
+                ? d.quantity_value
+                : parseFloat(d.quantity_value ?? "0");
+            return sum + (isNaN(value) ? 0 : value);
+          }, 0);
+          setImpactQuantity(totalImpact);
+
           setRequests(requestList);
         } catch (error) {
           console.error("Fetch error:", error);
@@ -127,7 +163,7 @@ const HomeScreen: React.FC = () => {
 
           <TouchableOpacity
             style={styles.statCard}
-            onPress={() => navigation.navigate("Donations")}
+            onPress={() => navigation.navigate("Main", { screen: "Donations" })}
           >
             <Ionicons name="people" size={24} color={theme.colors.accent} />
             <Text style={styles.statValue}>{requestCount}</Text>
@@ -136,7 +172,9 @@ const HomeScreen: React.FC = () => {
 
           <View style={styles.statCard}>
             <Ionicons name="leaf" size={24} color={theme.colors.accent} />
-            <Text style={styles.statValue}>-</Text>
+            <Text style={styles.statValue}>
+              {(impactQuantity ?? 0).toFixed(1)} kg
+            </Text>
             <Text style={styles.statLabel}>Impact</Text>
           </View>
         </View>
@@ -148,18 +186,27 @@ const HomeScreen: React.FC = () => {
         <Button
           style={{ backgroundColor: theme.colors.accent, borderWidth: 2 }}
           title="Check Activity"
-          onPress={() => navigation.navigate("Donations")}
+          onPress={() => navigation.navigate("Main", { screen: "Donations" })}
         />
       </View>
     </View>
   );
 
   const renderRecipientActions = () => (
-    <View style={styles.actionContainer}>
-      <Button
-        title="Search Donations"
-        onPress={() => navigation.navigate("DonationList")}
+    <View style={styles.section}>
+      <Image
+        source={require("../../assets/images/home-donation.jpg")}
+        style={styles.donorImage}
       />
+      <View style={styles.actionContainer}>
+        <Text style={[styles.sectionTitle, { marginBottom: theme.spacing.lg }]}>
+          Find Donations Near You
+        </Text>
+        <Button
+          title="Search Donations"
+          onPress={() => navigation.navigate("DonationList")}
+        />
+      </View>
     </View>
   );
 
@@ -183,6 +230,11 @@ const HomeScreen: React.FC = () => {
             size={24}
             color={theme.colors.textPrimary}
           />
+          {unreadCount > 0 && (
+            <View style={styles.notificationBadge}>
+              <Text style={styles.badgeText}>{unreadCount}</Text>
+            </View>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -423,6 +475,23 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 12,
     fontWeight: "600",
+  },
+  notificationBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    backgroundColor: "red",
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    color: "white",
+    fontSize: 10,
+    fontWeight: "bold",
   },
 });
 

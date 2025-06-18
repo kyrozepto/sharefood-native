@@ -6,7 +6,7 @@ import {
 } from "@react-navigation/bottom-tabs";
 import { createStackNavigator } from "@react-navigation/stack";
 import { Ionicons } from "@expo/vector-icons";
-import { ActivityIndicator, View, GestureResponderEvent } from "react-native";
+import { ActivityIndicator, View } from "react-native";
 
 // Screens
 import SignInScreen from "../screens/SignInScreen";
@@ -20,11 +20,13 @@ import AddDonationScreen from "../screens/AddDonationScreen";
 import DonationRequestsScreen from "../screens/DonationRequestsScreen";
 import PickupDetailScreen from "../screens/PickupDetailScreen";
 import ReviewRatingScreen from "../screens/ReviewRatingScreen";
+import ReviewListScreen from "screens/ReviewListScreen";
 import NotificationsScreen from "../screens/NotificationsScreen";
 import AboutScreen from "../screens/AboutScreen";
 import AccountSettingsScreen from "../screens/AccountSettingsScreen";
 import RequestFormScreen from "../screens/RequestFormScreen";
 import DonationActivityScreen from "../screens/DonationActivityScreen";
+import RequestActivityScreen from "../screens/RequestActivityScreen";
 import DonationListScreen from "../screens/DonationListScreen";
 import EditDonationScreen from "../screens/EditDonationScreen";
 // import PrivacyPolicyScreen from "../screens/PrivacyPolicyScreen";
@@ -39,6 +41,7 @@ import type {
 
 // Hooks
 import { useFonts } from "../hooks/useFonts";
+import { useAuth } from "../context/auth";
 
 // Theme
 import { theme } from "../utils/theme";
@@ -59,6 +62,7 @@ const AuthNavigator = () => (
 // Main tab navigator
 const MainTabNavigator = () => {
   const [currentRoute, setCurrentRoute] = useState("Home");
+  const { user } = useAuth();
 
   return (
     <View style={{ flex: 1 }}>
@@ -111,7 +115,14 @@ const MainTabNavigator = () => {
       >
         <Tab.Screen name="Home" component={HomeScreen} />
         <Tab.Screen name="Search" component={SearchScreen} />
-        <Tab.Screen name="Donations" component={DonationActivityScreen} />
+        <Tab.Screen
+          name="Donations"
+          component={
+            user?.user_type === "receiver"
+              ? RequestActivityScreen
+              : DonationActivityScreen
+          }
+        />
         <Tab.Screen name="Profile" component={ProfileScreen} />
       </Tab.Navigator>
     </View>
@@ -120,7 +131,7 @@ const MainTabNavigator = () => {
 
 // Root navigator
 const AppNavigator = () => {
-  const { fontsLoaded, error } = useFonts();
+  const { fontsLoaded } = useFonts();
 
   if (!fontsLoaded) {
     return (
@@ -154,6 +165,7 @@ const AppNavigator = () => {
         />
         <Stack.Screen name="PickupDetail" component={PickupDetailScreen} />
         <Stack.Screen name="ReviewRating" component={ReviewRatingScreen} />
+        <Stack.Screen name="ReviewList" component={ReviewListScreen} />
         <Stack.Screen name="Notifications" component={NotificationsScreen} />
         <Stack.Screen name="About" component={AboutScreen} />
         <Stack.Screen
@@ -164,6 +176,10 @@ const AppNavigator = () => {
         <Stack.Screen
           name="DonationActivity"
           component={DonationActivityScreen}
+        />
+        <Stack.Screen
+          name="RequestActivity"
+          component={RequestActivityScreen}
         />
         <Stack.Screen name="DonationList" component={DonationListScreen} />
         <Stack.Screen name="EditDonation" component={EditDonationScreen} />

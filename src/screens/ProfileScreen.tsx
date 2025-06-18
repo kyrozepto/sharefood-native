@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -16,37 +16,107 @@ import { Ionicons } from "@expo/vector-icons";
 import { globalStyles, theme } from "../utils/theme";
 import type { RootNavigationProp } from "../navigation/types";
 import { getUserById } from "../services/user";
+import { getDonations } from "../services/donation";
+import { getRatingsByDonorId } from "../services/rating";
 import { useAuth } from "../context/auth";
 
 const ProfileScreen: React.FC = () => {
   const navigation = useNavigation<RootNavigationProp>();
   const { user, token, logout } = useAuth();
   const [userData, setUserData] = useState<any>(null);
-  const [loading, setLoading] = useState(true); // Initialize to true
+  const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [modalContent, setModalContent] = useState({
     title: "",
     description: "",
   });
+  const [donationStats, setDonationStats] = useState<{
+    count: number;
+    totalQuantity: number;
+    impactKg: number;
+  }>({ count: 0, totalQuantity: 0, impactKg: 0 });
+  const [averageRating, setAverageRating] = useState<number | null>(null);
+
+  // Check if user is a donor (modify this condition based on your user role logic)
+  const isDonor = userData?.user_type === "donor";
+  // Alternative approaches if you use different field names:
+  // const isDonor = userData?.account_type === 'donor';
+  // const isDonor = userData?.is_donor === true;
+  // const isDonor = user?.user_type === 'donor';
 
   useFocusEffect(
     React.useCallback(() => {
-      const fetchUserData = async () => {
-        if (user?.user_id && token) {
-          try {
-            const data = await getUserById(user.user_id, token);
-            setUserData(data);
-          } catch (error) {
-          } finally {
-            setLoading(false);
+      const fetchData = async () => {
+        setLoading(true);
+        try {
+          if (user?.user_id && token) {
+            const userInfo = await getUserById(user.user_id, token);
+            setUserData(userInfo);
+
+            // Only fetch donation stats if user is a donor
+            if (userInfo?.user_type === "donor") {
+              const allDonations = await getDonations();
+              const userDonations = allDonations.filter(
+                (donation) => donation.user_id === user.user_id
+              );
+
+              let totalQuantity = 0;
+              let impactKg = 0;
+
+              for (const donation of userDonations) {
+                const qty = parseFloat(
+                  donation.quantity_value?.toString() || "0"
+                );
+                if (!isNaN(qty)) {
+                  totalQuantity += qty;
+                  if (
+                    donation.quantity_unit === "kg" &&
+                    donation.donation_status === "completed"
+                  ) {
+                    impactKg += qty;
+                  }
+                }
+              }
+
+              const completedDonationsCount = userDonations.filter(
+                (donation) => donation.donation_status === "completed"
+              ).length;
+
+              setDonationStats({
+                count: completedDonationsCount,
+                totalQuantity,
+                impactKg,
+              });
+
+              const donorRatings = await getRatingsByDonorId(
+                user.user_id,
+                token
+              );
+              const validRatings = donorRatings.filter(
+                (r) => !isNaN(parseFloat(r.rate as any))
+              );
+
+              const totalScore = validRatings.reduce(
+                (sum, r) => sum + parseFloat(r.rate as any),
+                0
+              );
+
+              const avg =
+                validRatings.length > 0
+                  ? totalScore / validRatings.length
+                  : null;
+
+              setAverageRating(avg);
+            }
           }
-        } else {
+        } catch (error) {
+          console.error("Error loading profile data:", error);
+        } finally {
           setLoading(false);
         }
       };
 
-      fetchUserData();
-      return () => {};
+      fetchData();
     }, [user?.user_id, token])
   );
 
@@ -111,32 +181,49 @@ const ProfileScreen: React.FC = () => {
         <Text style={styles.username}>{userData?.user_name}</Text>
         <Text style={styles.email}>{userData?.email}</Text>
 
-        <View style={styles.followSection}>
-          <TouchableOpacity
-            style={styles.followBox}
-            activeOpacity={0.7}
-            onPress={() =>
-              handleOpenModal("Donations", "You’ve donated food 120 times!")
-            }
-          >
-            <Text style={styles.followCount}>120</Text>
-            <Text style={styles.followLabel}>Donations</Text>
-          </TouchableOpacity>
+        {/* Only show donation stats for donors */}
+        {isDonor && (
+          <View style={styles.followSection}>
+            <TouchableOpacity
+              style={styles.followBox}
+              activeOpacity={0.7}
+              onPress={() =>
+                handleOpenModal(
+                  "Donations",
+                  `You've donated food ${donationStats.count} times!`
+                )
+              }
+            >
+              <Text style={styles.followCount}>{donationStats.count}</Text>
+              <Text style={styles.followLabel}>Donations</Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.followBox}
-            activeOpacity={0.7}
-            onPress={() =>
-              handleOpenModal(
-                "Impact",
-                "You’ve helped prevent 85kg of food waste!"
-              )
-            }
-          >
-            <Text style={styles.followCount}>85kg</Text>
-            <Text style={styles.followLabel}>Impact</Text>
-          </TouchableOpacity>
-        </View>
+            <TouchableOpacity
+              style={styles.followBox}
+              activeOpacity={0.7}
+              onPress={() =>
+                handleOpenModal(
+                  "Impact",
+                  `You've helped prevent ${donationStats.impactKg}kg of food waste!`
+                )
+              }
+            >
+              <Text style={styles.followCount}>{donationStats.impactKg}kg</Text>
+              <Text style={styles.followLabel}>Impact</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.followBox}
+              activeOpacity={0.7}
+              onPress={() => navigation.navigate("ReviewList")}
+            >
+              <Text style={styles.followCount}>
+                {averageRating !== null ? averageRating.toFixed(1) : "0.0"}
+              </Text>
+              <Text style={styles.followLabel}>Rating</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         <Text style={[globalStyles.title, styles.settingsTitle]}>Settings</Text>
 
@@ -226,7 +313,7 @@ const styles = StyleSheet.create({
   followSection: {
     flexDirection: "row",
     justifyContent: "center",
-    gap: 100,
+    gap: 50,
     marginVertical: theme.spacing.lg,
   },
   followBox: {

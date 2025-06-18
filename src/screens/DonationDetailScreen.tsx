@@ -10,28 +10,144 @@ import {
   ScrollView,
   Image,
   ActivityIndicator,
+  Alert,
 } from "react-native";
+import { WebView } from "react-native-webview";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 
 import type { RootNavigationProp, RootRouteProp } from "../navigation/types";
 import { globalStyles, theme } from "../utils/theme";
 import Button from "../components/Button";
-import { getDonationById } from "../services/donation";
+import { getDonationById, updateDonation } from "../services/donation";
 import { getRequests } from "../services/request";
 import type { Donation } from "../interfaces/donationInterface";
 import type { RequestItem } from "../interfaces/requestInterface";
+import { useAuth } from "../context/auth";
+
+// ✅ Location Map Component
+interface LocationMapProps {
+  location: string; // Location string in format "lat,lng"
+}
+
+const LocationMap: React.FC<LocationMapProps> = ({ location }) => {
+  // Parse coordinates from location string
+  const parseCoordinates = (locationStr: string) => {
+    try {
+      const coords = locationStr.split(",");
+      if (coords.length === 2) {
+        const lat = parseFloat(coords[0].trim());
+        const lng = parseFloat(coords[1].trim());
+        if (!isNaN(lat) && !isNaN(lng)) {
+          return { lat, lng };
+        }
+      }
+    } catch (error) {
+      console.log("Error parsing coordinates:", error);
+    }
+    // Default to Jakarta coordinates if parsing fails
+    return { lat: -6.2088, lng: 106.8456 };
+  };
+
+  const { lat, lng } = parseCoordinates(location);
+  const zoom = 15;
+
+  // Generate a readable location name (you might want to use reverse geocoding for real names)
+  const locationName = `Lokasi Donasi (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+
+  // Create OpenStreetMap HTML for WebView
+  const mapHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+      <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+      <style>
+        body { margin: 0; padding: 0; }
+        #map { height: 150px; width: 100%; }
+      </style>
+    </head>
+    <body>
+      <div id="map"></div>
+      <script>
+        var map = L.map('map', {
+          zoomControl: true,
+          scrollWheelZoom: true,
+          doubleClickZoom: true,
+          boxZoom: true,
+          keyboard: true,
+          dragging: true,
+          tap: true,
+          touchZoom: true
+        }).setView([${lat}, ${lng}], ${zoom});
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+        
+        L.marker([${lat}, ${lng}]).addTo(map)
+          .bindPopup('Lokasi Donasi')
+          .openPopup();
+      </script>
+    </body>
+    </html>
+  `;
+
+  return (
+    <View style={styles.locationMapContainer}>
+      <View style={styles.locationHeader}>
+        <Ionicons
+          name="location-outline"
+          size={20}
+          color={theme.colors.accent}
+        />
+        <Text style={styles.locationTitle}>Lokasi Donasi</Text>
+      </View>
+
+      <Text style={styles.locationName}>{locationName}</Text>
+
+      {/* Interactive Map with OpenStreetMap */}
+      <View style={styles.mapContainer}>
+        <WebView
+          source={{ html: mapHtml }}
+          style={styles.webViewMap}
+          showsHorizontalScrollIndicator={false}
+          showsVerticalScrollIndicator={false}
+          javaScriptEnabled={true}
+          domStorageEnabled={true}
+          allowsInlineMediaPlayback={true}
+        />
+      </View>
+
+      <View style={styles.mapInfo}>
+        <Ionicons
+          name="information-circle-outline"
+          size={16}
+          color={theme.colors.textTertiary}
+        />
+        <Text style={styles.mapInfoText}>
+          Hanya untuk Pengambilan Sendiri (Self-Pickup)
+        </Text>
+      </View>
+    </View>
+  );
+};
 
 const DonationDetailScreen: React.FC = () => {
   const navigation = useNavigation<RootNavigationProp>();
   const route = useRoute<RootRouteProp<"DonationDetail">>();
   const { donationId } = route.params;
 
+  // Get current user info from auth context
+  const { user, token } = useAuth();
+
   const [donation, setDonation] = useState<Donation | null>(null);
   const [confirmedRequest, setConfirmedRequest] = useState<RequestItem | null>(
     null
   );
   const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -78,10 +194,99 @@ const DonationDetailScreen: React.FC = () => {
     return `${hoursLeft} hour${hoursLeft > 1 ? "s" : ""} left`;
   };
 
+  const handleCancelDonation = async () => {
+    if (!donation || !token) return;
+
+    Alert.alert(
+      "Cancel Donation",
+      "Are you sure you want to cancel this donation?",
+      [
+        {
+          text: "No",
+          style: "cancel",
+        },
+        {
+          text: "Yes",
+          style: "destructive",
+          onPress: async () => {
+            setUpdating(true);
+            try {
+              await updateDonation(
+                donation.donation_id,
+                { donation_status: "canceled" },
+                token
+              );
+
+              // Update local state
+              setDonation((prev) =>
+                prev ? { ...prev, donation_status: "canceled" } : null
+              );
+
+              Alert.alert("Success", "Donation has been canceled.");
+            } catch (err) {
+              console.error(err);
+              Alert.alert(
+                "Error",
+                "Failed to cancel donation. Please try again."
+              );
+            } finally {
+              setUpdating(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const isUserTheDonor = () => {
+    return donation && user && donation.user_id === user.user_id;
+  };
+
+  const shouldShowButton = () => {
+    if (!donation || !user) return false;
+
+    if (isUserTheDonor()) {
+      // Donor viewing their own donation — show cancel button if still available
+      return donation.donation_status === "available";
+    } else {
+      // If current user is a donor, they should not request from others
+      if (user.user_type === "donor") return false;
+
+      // Only show request button to non-donor users
+      return donation.donation_status === "available";
+    }
+  };
+
+  const renderActionButton = () => {
+    if (!shouldShowButton() || !donation) return null;
+
+    if (isUserTheDonor()) {
+      // User is the donor - show cancel button
+      return (
+        <Button
+          title={updating ? "Canceling..." : "Cancel Donation"}
+          onPress={handleCancelDonation}
+          disabled={updating}
+          style={styles.cancelButton}
+        />
+      );
+    } else {
+      // User is not the donor - show request button
+      return (
+        <Button
+          title="Request Donation"
+          onPress={() => navigation.navigate("RequestForm", { donation })}
+        />
+      );
+    }
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={globalStyles.safeArea}>
-        <ActivityIndicator size="large" color={theme.colors.accent} />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.accent} />
+        </View>
       </SafeAreaView>
     );
   }
@@ -89,7 +294,9 @@ const DonationDetailScreen: React.FC = () => {
   if (!donation) {
     return (
       <SafeAreaView style={globalStyles.safeArea}>
-        <Text style={{ color: theme.colors.textSecondary }}>{error}</Text>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
       </SafeAreaView>
     );
   }
@@ -141,11 +348,6 @@ const DonationDetailScreen: React.FC = () => {
             </View>
           )}
 
-          <View style={styles.metaBox}>
-            <Ionicons name="location" size={20} color={theme.colors.accent} />
-            <Text style={styles.metaText}>{donation.location}</Text>
-          </View>
-
           {confirmedRequest && (
             <View style={styles.metaBox}>
               <Ionicons name="alarm" size={20} color={theme.colors.accent} />
@@ -156,23 +358,44 @@ const DonationDetailScreen: React.FC = () => {
           )}
         </View>
 
+        {/* ✅ Location Map Section */}
+        <LocationMap location={donation.location} />
+
         <Text style={styles.sectionTitle}>Description</Text>
         <Text style={styles.description}>
           {donation.description || "No additional description provided."}
         </Text>
 
         <Text style={styles.sectionTitle}>Status</Text>
-        <View style={styles.statusBadge}>
+        <View
+          style={[
+            styles.statusBadge,
+            donation.donation_status === "canceled" &&
+              styles.statusBadgeCanceled,
+            donation.donation_status === "completed" &&
+              styles.statusBadgeCompleted,
+          ]}
+        >
           <Text style={styles.statusText}>
             {donation.donation_status.charAt(0).toUpperCase() +
               donation.donation_status.slice(1)}
           </Text>
         </View>
 
-        <Button
-          title="Request Donation"
-          onPress={() => navigation.navigate("RequestForm", { donation })}
-        />
+        {isUserTheDonor() && (
+          <View style={styles.donorNote}>
+            <Ionicons
+              name="information-circle"
+              size={16}
+              color={theme.colors.accent}
+            />
+            <Text style={styles.donorNoteText}>
+              You are the donor of this item
+            </Text>
+          </View>
+        )}
+
+        {renderActionButton()}
       </ScrollView>
     </SafeAreaView>
   );
@@ -207,6 +430,21 @@ const styles = StyleSheet.create({
     fontFamily: theme.font.family.bold,
     fontSize: theme.font.size.xl,
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: theme.spacing.lg,
+  },
+  errorText: {
+    color: theme.colors.textSecondary,
+    textAlign: "center",
+  },
   image: {
     width: "100%",
     height: 250,
@@ -223,7 +461,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
-    marginBottom: theme.spacing.xl,
   },
   metaBox: {
     width: "48%",
@@ -239,6 +476,60 @@ const styles = StyleSheet.create({
     fontFamily: theme.font.family.regular,
     fontSize: theme.font.size.md,
     marginLeft: theme.spacing.xs,
+  },
+  locationMapContainer: {
+    marginBottom: theme.spacing.lg,
+    padding: theme.spacing.md,
+    backgroundColor: theme.colors.backgroundSecondary,
+    borderRadius: theme.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.05)",
+  },
+  locationHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: theme.spacing.sm,
+  },
+  locationTitle: {
+    marginLeft: theme.spacing.sm,
+    color: theme.colors.textPrimary,
+    fontFamily: theme.font.family.bold,
+    fontSize: theme.font.size.md,
+  },
+  locationName: {
+    color: theme.colors.textSecondary,
+    fontFamily: theme.font.family.medium,
+    fontSize: theme.font.size.md,
+    marginBottom: theme.spacing.md,
+    lineHeight: 20,
+  },
+  mapContainer: {
+    height: 150,
+    borderRadius: theme.borderRadius.md,
+    overflow: "hidden",
+    marginBottom: theme.spacing.sm,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.1)",
+  },
+  webViewMap: {
+    flex: 1,
+    borderRadius: theme.borderRadius.md,
+  },
+  mapInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
+    backgroundColor: "rgba(0,0,0,0.03)",
+    borderRadius: theme.borderRadius.sm,
+  },
+  mapInfoText: {
+    marginLeft: theme.spacing.sm,
+    color: theme.colors.textTertiary,
+    fontFamily: theme.font.family.regular,
+    fontSize: theme.font.size.xs,
+    flex: 1,
+    lineHeight: 16,
   },
   sectionTitle: {
     color: theme.colors.textPrimary,
@@ -261,11 +552,34 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     marginBottom: theme.spacing.xl,
   },
+  statusBadgeCanceled: {
+    backgroundColor: "#ff6b6b",
+  },
+  statusBadgeCompleted: {
+    backgroundColor: "#51cf66",
+  },
   statusText: {
     color: "#fff",
     fontFamily: theme.font.family.bold,
     fontSize: theme.font.size.sm,
     textTransform: "capitalize",
+  },
+  donorNote: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: theme.colors.backgroundSecondary,
+    padding: theme.spacing.sm,
+    borderRadius: 8,
+    marginBottom: theme.spacing.lg,
+  },
+  donorNoteText: {
+    color: theme.colors.accent,
+    fontFamily: theme.font.family.regular,
+    fontSize: theme.font.size.sm,
+    marginLeft: theme.spacing.xs,
+  },
+  cancelButton: {
+    backgroundColor: "#ff6b6b",
   },
 });
 

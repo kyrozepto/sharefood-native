@@ -22,12 +22,14 @@ const userRoutes = require("./src/routes/userRoutes");
 const donationRoutes = require("./src/routes/donationRoutes");
 const requestRoutes = require("./src/routes/requestRoutes");
 const ratingRoutes = require("./src/routes/ratingRoutes");
+const notificationRoutes = require("./src/routes/notificationRoutes");
 
 // Use Routes
 app.use("/api/user", userRoutes);
 app.use("/api/donation", donationRoutes);
 app.use("/api/request", requestRoutes);
 app.use("/api/rating", ratingRoutes);
+app.use("/api/notification", notificationRoutes);
 
 // Start server
 const PORT = process.env.PORT || 5000;

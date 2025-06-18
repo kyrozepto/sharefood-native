@@ -1,302 +1,465 @@
-import type React from "react"
-import { useState } from "react"
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Image } from "react-native"
-import { useNavigation } from "@react-navigation/native"
-import { Ionicons } from "@expo/vector-icons"
-import type { RootNavigationProp } from "../navigation/types"
-import { globalStyles, theme } from "../utils/theme"
-import Button from "../components/Button"
+import React from "react";
+import { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  SafeAreaView,
+  ScrollView,
+  Image,
+  RefreshControl,
+  Alert,
+} from "react-native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
+import { Ionicons } from "@expo/vector-icons";
+import type { RootNavigationProp } from "../navigation/types";
+import { globalStyles, theme } from "../utils/theme";
+import Button from "../components/Button";
+import { useAuth } from "../context/auth";
+import { getDonations } from "../services/donation";
+import { getUserById } from "../services/user";
+import { getRequests, updateRequest } from "../services/request";
+import type { DonationWithRequests } from "../interfaces/donationInterface";
+import type { RequestItem } from "../interfaces/requestInterface";
+import type { RequestItemWithUser } from "../interfaces/requestInterface";
 
-// Mock data - replace with actual data from your backend
-const mockRequests = [
-  {
-    id: "1",
-    recipient: {
-      name: "Alice Smith",
-      rating: 4.5,
-      totalRequests: 8,
-      image: "https://picsum.photos/201",
-    },
-    donation: {
-      title: "Fresh Vegetables",
-      quantity: "2kg",
-      image: "https://images.pexels.com/photos/3872406/pexels-photo-3872406.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
-    },
-    status: "pending",
-    message: "I can pick up within the next hour",
-    timeRequested: "10 minutes ago",
-  },
-  {
-    id: "2",
-    recipient: {
-      name: "Bob Johnson",
-      rating: 4.8,
-      totalRequests: 12,
-      image: "https://picsum.photos/202",
-    },
-    donation: {
-      title: "Rice and Curry",
-      quantity: "3 serving",
-      image: "https://images.pexels.com/photos/6544376/pexels-photo-6544376.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
-    },
-    status: "approved",
-    message: "I'll be there in 30 minutes",
-    timeRequested: "5 minutes ago",
-  },
-]
-
-const mockPickups = [
-  {
-    id: "1",
-    donation: {
-      title: "Fresh Vegetables",
-      quantity: "5kg",
-      image: "https://images.pexels.com/photos/3872406/pexels-photo-3872406.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
-    },
-    recipient: {
-      name: "Alice Smith",
-      phone: "+1 234 567 8900",
-      image: "https://picsum.photos/201",
-    },
-    status: "scheduled",
-    scheduledTime: "Today, 2:00 PM",
-    location: "123 Main St, City",
-  },
-  {
-    id: "2",
-    donation: {
-      title: "Rice and Curry",
-      quantity: "3 serving",
-      image: "https://images.pexels.com/photos/6544376/pexels-photo-6544376.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
-    },
-    recipient: {
-      name: "Bob Johnson",
-      phone: "+1 234 567 8901",
-      image: "https://picsum.photos/202",
-    },
-    status: "scheduled",
-    scheduledTime: "Today, 4:00 PM",
-    location: "456 Oak St, City",
-  },
-]
-
-const mockHistory = [
-  {
-    id: "1",
-    donation: {
-      title: "Fresh Vegetables",
-      quantity: "5kg",
-      image: "https://images.pexels.com/photos/3872406/pexels-photo-3872406.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
-    },
-    recipient: {
-      name: "Alice Smith",
-      image: "https://picsum.photos/201",
-    },
-    status: "completed",
-    completedAt: "Yesterday, 2:00 PM",
-    rating: 5,
-  },
-  {
-    id: "2",
-    donation: {
-      title: "Rice and Curry",
-      quantity: "3 serving",
-      image: "https://images.pexels.com/photos/6544376/pexels-photo-6544376.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
-    },
-    recipient: {
-      name: "Bob Johnson",
-      image: "https://picsum.photos/202",
-    },
-    status: "cancelled",
-    cancelledAt: "Yesterday, 4:00 PM",
-  },
-]
-
-type TabType = "requests" | "pickups" | "history"
+type TabType = "requests" | "pickups" | "history";
 
 const DonationActivityScreen: React.FC = () => {
-  const navigation = useNavigation<RootNavigationProp>()
-  const [activeTab, setActiveTab] = useState<TabType>("requests")
-  const [isLoading, setIsLoading] = useState(false)
+  const navigation = useNavigation<RootNavigationProp>();
+  const { user, token } = useAuth();
+  const [activeTab, setActiveTab] = useState<TabType>("requests");
+  const [isLoading, setIsLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const handleRequest = async (requestId: string, action: "approve" | "reject") => {
-    setIsLoading(true)
+  // Data states
+  const [userDonations, setUserDonations] = useState<DonationWithRequests[]>(
+    []
+  );
+  const [allRequests, setAllRequests] = useState<RequestItem[]>([]);
+
+  const loadData = async () => {
+    if (!user || !token) return;
+
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-      // Handle the request action here
+      const [donations, requests] = await Promise.all([
+        getDonations(),
+        getRequests(),
+      ]);
+
+      const filteredDonations = donations.filter(
+        (donation) => donation.user_id === user.user_id
+      ) as DonationWithRequests[];
+
+      for (const donation of filteredDonations) {
+        donation.requests = requests.filter(
+          (req: RequestItem) => req.donation_id === donation.donation_id
+        );
+
+        const matched = donation.requests.find(
+          (req) =>
+            req.request_status === "approved" ||
+            req.request_status === "confirmed"
+        );
+
+        if (matched) {
+          donation.matchedRequest = matched;
+
+          // ✅ Get actual user data for the requester - Fixed: Added token parameter
+          try {
+            const userData = await getUserById(matched.user_id, token);
+            matched.user = userData;
+          } catch (err) {
+            console.error(
+              "Failed to get user for request",
+              matched.user_id,
+              err
+            );
+          }
+        }
+      }
+
+      setUserDonations(filteredDonations);
+      setAllRequests(requests);
     } catch (error) {
-      // Handle error
-    } finally {
-      setIsLoading(false)
+      console.error("Error loading data:", error);
+      Alert.alert("Error", "Failed to load donation activity");
     }
-  }
+  };
+
+  useFocusEffect(
+    React.useCallback(() => {
+      loadData();
+    }, [user, token])
+  );
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  };
+
+  const handleRequest = async (
+    requestId: number,
+    action: "approved" | "rejected"
+  ) => {
+    if (!token) return;
+
+    setIsLoading(true);
+    try {
+      await updateRequest(requestId, { request_status: action }, token);
+      await loadData(); // Refresh data
+      Alert.alert("Success", `Request ${action} successfully`);
+    } catch (error) {
+      console.error("Error updating request:", error);
+      Alert.alert("Error", `Failed to ${action.toLowerCase()} request`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "available":
+        return theme.colors.accent;
+      case "confirmed":
+        return "#FFA500"; // Orange color for confirmed
+      case "completed":
+        return "#4CAF50"; // Green color for completed
+      case "cancelled":
+        return theme.colors.error;
+      case "waiting":
+        return "#9E9E9E"; // Gray color for waiting
+      default:
+        return theme.colors.textSecondary;
+    }
+  };
+
+  const getDisplayStatus = (status: string) => {
+    return status.charAt(0).toUpperCase() + status.slice(1);
+  };
+
+  const calculateTimeLeft = (pickupTime: string) => {
+    const now = new Date();
+
+    // Combine today's date with the pickup time
+    const [hours, minutes, seconds] = pickupTime.split(":").map(Number);
+    const pickup = new Date(now);
+    pickup.setHours(hours, minutes, seconds || 0, 0);
+
+    const diffInMs = pickup.getTime() - now.getTime();
+    const diffInMinutes = Math.ceil(diffInMs / (1000 * 60));
+
+    if (diffInMinutes < 0) return "Overdue";
+    if (diffInMinutes < 60) return `${diffInMinutes} min left`;
+    const hoursLeft = Math.floor(diffInMinutes / 60);
+    return `${hoursLeft} hour${hoursLeft > 1 ? "s" : ""} left`;
+  };
 
   const renderTabContent = () => {
     switch (activeTab) {
       case "requests":
+        const myAvailableDonations = userDonations.filter(
+          (donation) =>
+            donation.donation_status === "available" &&
+            donation.user_id === user?.user_id
+        );
+
         return (
           <View style={styles.content}>
-            {mockRequests.map((request) => (
-              <View key={request.id} style={styles.card}>
-                <View style={styles.cardHeader}>
-                  <Image source={{ uri: request.donation.image }} style={styles.donationImage} />
-                  <View style={styles.donationInfo}>
-                    <Text style={styles.donationTitle}>{request.donation.title}</Text>
-                    <Text style={styles.donationQuantity}>{request.donation.quantity}</Text>
-                  </View>
-                </View>
-
-                <View style={styles.recipientInfo}>
-                  <Image source={{ uri: request.recipient.image }} style={styles.recipientImage} />
-                  <View style={styles.recipientDetails}>
-                    <Text style={styles.recipientName}>{request.recipient.name}</Text>
-                    <View style={styles.ratingContainer}>
-                      <Ionicons name="star" size={16} color={theme.colors.accent} />
-                      <Text style={styles.ratingText}>{request.recipient.rating}</Text>
-                      <Text style={styles.requestCount}>
-                        ({request.recipient.totalRequests} requests)
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-
-                <View style={styles.requestDetails}>
-                  <View style={styles.detailRow}>
-                    <Ionicons name="time" size={20} color={theme.colors.textSecondary} />
-                    <Text style={styles.detailText}>{request.timeRequested}</Text>
-                  </View>
-                  <Text style={styles.message}>{request.message}</Text>
-                </View>
-
-                {request.status === "pending" ? (
-                  <View style={styles.actionButtons}>
-                    <Button 
-                      title="Approve" 
-                      onPress={() => handleRequest(request.id, "approve")}
-                      variant="secondary"
-                    />
-                    <Button 
-                      title="Reject" 
-                      onPress={() => handleRequest(request.id, "reject")}
-                    />
-                  </View>
-                ) : (
-                  <View style={styles.statusContainer}>
-                    <Text style={[
-                      styles.statusText,
-                      request.status === "approved" ? styles.approvedText : styles.rejectedText
-                    ]}>
-                      {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
-                    </Text>
-                  </View>
-                )}
+            {myAvailableDonations.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyText}>
+                  You have no available donations
+                </Text>
               </View>
-            ))}
+            ) : (
+              myAvailableDonations.map((donation) => {
+                const hasRequest = donation.requests.some(
+                  (req) =>
+                    req.request_status === "waiting" ||
+                    req.request_status === "pending"
+                );
+
+                const CardContent = (
+                  <>
+                    <Image
+                      source={{
+                        uri:
+                          donation.donation_picture ||
+                          "https://via.placeholder.com/100",
+                      }}
+                      style={styles.donationImage}
+                    />
+                    <View style={styles.donationInfo}>
+                      <Text style={styles.donationTitle}>
+                        {donation.title || "Untitled"}
+                      </Text>
+                      <Text style={styles.donationQuantity}>
+                        {donation.quantity_value || 0}{" "}
+                        {donation.quantity_unit || ""}
+                      </Text>
+                      <View style={styles.donationMeta}>
+                        <View
+                          style={[
+                            styles.statusBadge,
+                            {
+                              backgroundColor: getStatusColor(
+                                donation.donation_status
+                              ),
+                            },
+                          ]}
+                        >
+                          <Text style={styles.statusText}>
+                            {getDisplayStatus(donation.donation_status)}
+                          </Text>
+                        </View>
+                        <View style={styles.metaItem}>
+                          <Ionicons
+                            name="people"
+                            size={16}
+                            color={theme.colors.textSecondary}
+                          />
+                          <Text style={styles.metaText}>
+                            {
+                              donation.requests.filter(
+                                (req) =>
+                                  req.request_status === "waiting" ||
+                                  req.request_status === "pending"
+                              ).length
+                            }{" "}
+                            requests
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                  </>
+                );
+
+                return hasRequest ? (
+                  <TouchableOpacity
+                    key={donation.donation_id}
+                    style={styles.donationCard}
+                    onPress={() =>
+                      navigation.navigate("DonationRequests", {
+                        donationId: donation.donation_id.toString(),
+                      })
+                    }
+                  >
+                    {CardContent}
+                  </TouchableOpacity>
+                ) : (
+                  <View
+                    key={donation.donation_id}
+                    style={[styles.donationCard, { opacity: 0.6 }]}
+                  >
+                    {CardContent}
+                  </View>
+                );
+              })
+            )}
           </View>
-        )
+        );
 
       case "pickups":
+        const confirmedDonations = userDonations.filter(
+          (donation) =>
+            donation.donation_status === "confirmed" && donation.matchedRequest
+        );
+
         return (
           <View style={styles.content}>
-            {mockPickups.map((pickup) => (
-              <TouchableOpacity 
-                key={pickup.id} 
-                style={styles.card}
-                onPress={() => navigation.navigate("PickupDetail", { donationId: pickup.id })}
-              >
-                <View style={styles.cardHeader}>
-                  <Image source={{ uri: pickup.donation.image }} style={styles.donationImage} />
-                  <View style={styles.donationInfo}>
-                    <Text style={styles.donationTitle}>{pickup.donation.title}</Text>
-                    <Text style={styles.donationQuantity}>{pickup.donation.quantity}</Text>
-                  </View>
-                </View>
+            {confirmedDonations.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyText}>No scheduled pickups</Text>
+              </View>
+            ) : (
+              confirmedDonations.map((donation) => {
+                const matchedRequest =
+                  donation.matchedRequest as RequestItemWithUser;
 
-                <View style={styles.recipientInfo}>
-                  <Image source={{ uri: pickup.recipient.image }} style={styles.recipientImage} />
-                  <View style={styles.recipientDetails}>
-                    <Text style={styles.recipientName}>{pickup.recipient.name}</Text>
-                    <View style={styles.contactInfo}>
-                      <Ionicons name="call" size={20} color={theme.colors.textSecondary} />
-                      <Text style={styles.contactText}>{pickup.recipient.phone}</Text>
+                // Fixed: Added null check for user
+                const requesterUser = matchedRequest?.user;
+
+                return (
+                  <TouchableOpacity
+                    key={donation.donation_id}
+                    style={styles.donationCard}
+                    onPress={() =>
+                      navigation.navigate("PickupDetail", {
+                        requestId: matchedRequest.request_id.toString(),
+                      })
+                    }
+                  >
+                    <Image
+                      source={{
+                        uri:
+                          donation.donation_picture ||
+                          "https://via.placeholder.com/100",
+                      }}
+                      style={styles.donationImage}
+                    />
+                    <View style={styles.donationInfo}>
+                      <Text style={styles.donationTitle}>
+                        {donation.title || "Untitled"}
+                      </Text>
+                      <Text style={styles.donationQuantity}>
+                        {donation.quantity_value || 0}{" "}
+                        {donation.quantity_unit || ""}
+                      </Text>
+
+                      <View style={styles.pickupInfo}>
+                        <View style={styles.metaItem}>
+                          <Ionicons
+                            name="person"
+                            size={16}
+                            color={theme.colors.textSecondary}
+                          />
+                          <Text style={styles.metaText}>
+                            {requesterUser?.user_name || "Unknown User"}
+                          </Text>
+                        </View>
+
+                        <View style={styles.metaItem}>
+                          <Ionicons
+                            name="time"
+                            size={16}
+                            color={theme.colors.textSecondary}
+                          />
+                          <Text style={styles.metaText}>
+                            {calculateTimeLeft(matchedRequest.pickup_time)}
+                          </Text>
+                        </View>
+
+                        <View style={styles.metaItem}>
+                          <Ionicons
+                            name="location"
+                            size={16}
+                            color={theme.colors.textSecondary}
+                          />
+                          <Text style={styles.metaText}>
+                            {donation.location}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.donationMeta}>
+                        <View
+                          style={[
+                            styles.statusBadge,
+                            {
+                              backgroundColor: getStatusColor(
+                                donation.donation_status
+                              ),
+                            },
+                          ]}
+                        >
+                          <Text style={styles.statusText}>
+                            {getDisplayStatus(donation.donation_status)}
+                          </Text>
+                        </View>
+                      </View>
                     </View>
-                  </View>
-                </View>
-
-                <View style={styles.pickupDetails}>
-                  <View style={styles.detailRow}>
-                    <Ionicons name="time" size={20} color={theme.colors.textSecondary} />
-                    <Text style={styles.detailText}>{pickup.scheduledTime}</Text>
-                  </View>
-                  <View style={styles.detailRow}>
-                    <Ionicons name="location" size={20} color={theme.colors.textSecondary} />
-                    <Text style={styles.detailText}>{pickup.location}</Text>
-                  </View>
-                </View>
-
-                <View style={styles.statusContainer}>
-                  <Text style={styles.statusText}>
-                    {pickup.status.charAt(0).toUpperCase() + pickup.status.slice(1)}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))}
+                  </TouchableOpacity>
+                );
+              })
+            )}
           </View>
-        )
+        );
 
       case "history":
+        const completedDonations = userDonations.filter(
+          (donation) => donation.donation_status === "completed"
+        );
+
         return (
           <View style={styles.content}>
-            {mockHistory.map((item) => (
-              <View key={item.id} style={styles.card}>
-                <View style={styles.cardHeader}>
-                  <Image source={{ uri: item.donation.image }} style={styles.donationImage} />
-                  <View style={styles.donationInfo}>
-                    <Text style={styles.donationTitle}>{item.donation.title}</Text>
-                    <Text style={styles.donationQuantity}>{item.donation.quantity}</Text>
-                  </View>
-                </View>
-
-                <View style={styles.recipientInfo}>
-                  <Image source={{ uri: item.recipient.image }} style={styles.recipientImage} />
-                  <View style={styles.recipientDetails}>
-                    <Text style={styles.recipientName}>{item.recipient.name}</Text>
-                    {item.status === "completed" && (
-                      <View style={styles.ratingContainer}>
-                        <Ionicons name="star" size={16} color={theme.colors.accent} />
-                        <Text style={styles.ratingText}>{item.rating}</Text>
-                      </View>
-                    )}
-                  </View>
-                </View>
-
-                <View style={styles.historyDetails}>
-                  <View style={styles.detailRow}>
-                    <Ionicons 
-                      name={item.status === "completed" ? "checkmark-circle" : "close-circle"} 
-                      size={20} 
-                      color={item.status === "completed" ? theme.colors.accent : theme.colors.error} 
-                    />
-                    <Text style={styles.detailText}>
-                      {item.status === "completed" ? item.completedAt : item.cancelledAt}
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={styles.statusContainer}>
-                  <Text style={[
-                    styles.statusText,
-                    item.status === "completed" ? styles.approvedText : styles.rejectedText
-                  ]}>
-                    {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
-                  </Text>
-                </View>
+            {completedDonations.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyText}>No completed donations</Text>
               </View>
-            ))}
+            ) : (
+              completedDonations.map((donation) => {
+                const completedRequest = donation.requests.find(
+                  (req) => req.request_status === "completed"
+                );
+
+                return (
+                  <TouchableOpacity
+                    key={donation.donation_id}
+                    style={styles.donationCard}
+                    onPress={() =>
+                      navigation.navigate("DonationDetail", {
+                        donationId: donation.donation_id.toString(),
+                      })
+                    }
+                  >
+                    <Image
+                      source={{
+                        uri:
+                          donation.donation_picture ||
+                          "https://via.placeholder.com/100",
+                      }}
+                      style={styles.donationImage}
+                    />
+                    <View style={styles.donationInfo}>
+                      <Text style={styles.donationTitle}>
+                        {donation.title || "Untitled"}
+                      </Text>
+                      <Text style={styles.donationQuantity}>
+                        {donation.quantity_value || 0}{" "}
+                        {donation.quantity_unit || ""}
+                      </Text>
+
+                      {/* Fixed: Use the user data that was already fetched and stored in matched request */}
+                      {completedRequest?.user && (
+                        <View style={styles.metaItem}>
+                          <Ionicons
+                            name="person"
+                            size={16}
+                            color={theme.colors.textSecondary}
+                          />
+                          <Text style={styles.metaText}>
+                            Received by {completedRequest.user.user_name}
+                          </Text>
+                        </View>
+                      )}
+
+                      <View style={styles.donationMeta}>
+                        <View
+                          style={[
+                            styles.statusBadge,
+                            {
+                              backgroundColor: getStatusColor(
+                                donation.donation_status
+                              ),
+                            },
+                          ]}
+                        >
+                          <Text style={styles.statusText}>
+                            {getDisplayStatus(donation.donation_status)}
+                          </Text>
+                        </View>
+
+                        <View style={styles.metaItem}>
+                          <Ionicons
+                            name="checkmark-circle"
+                            size={16}
+                            color="#4CAF50"
+                          />
+                          <Text style={styles.metaText}>Completed</Text>
+                        </View>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })
+            )}
           </View>
-        )
+        );
     }
-  }
+  };
 
   return (
     <SafeAreaView style={globalStyles.safeArea}>
@@ -310,7 +473,12 @@ const DonationActivityScreen: React.FC = () => {
           style={[styles.tab, activeTab === "requests" && styles.activeTab]}
           onPress={() => setActiveTab("requests")}
         >
-          <Text style={[styles.tabText, activeTab === "requests" && styles.activeTabText]}>
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === "requests" && styles.activeTabText,
+            ]}
+          >
             Requests
           </Text>
         </TouchableOpacity>
@@ -318,7 +486,12 @@ const DonationActivityScreen: React.FC = () => {
           style={[styles.tab, activeTab === "pickups" && styles.activeTab]}
           onPress={() => setActiveTab("pickups")}
         >
-          <Text style={[styles.tabText, activeTab === "pickups" && styles.activeTabText]}>
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === "pickups" && styles.activeTabText,
+            ]}
+          >
             Pickups
           </Text>
         </TouchableOpacity>
@@ -326,18 +499,28 @@ const DonationActivityScreen: React.FC = () => {
           style={[styles.tab, activeTab === "history" && styles.activeTab]}
           onPress={() => setActiveTab("history")}
         >
-          <Text style={[styles.tabText, activeTab === "history" && styles.activeTabText]}>
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === "history" && styles.activeTabText,
+            ]}
+          >
             History
           </Text>
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.scrollView}>
+      <ScrollView
+        style={styles.scrollView}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
         {renderTabContent()}
       </ScrollView>
     </SafeAreaView>
-  )
-}
+  );
+};
 
 const styles = StyleSheet.create({
   header: {
@@ -349,14 +532,6 @@ const styles = StyleSheet.create({
     paddingTop: theme.spacing.xxxl,
     backgroundColor: theme.colors.background,
   },
-  // backButton: {
-  //   width: 40,
-  //   height: 40,
-  //   borderRadius: 20,
-  //   backgroundColor: theme.colors.backgroundSecondary,
-  //   justifyContent: "center",
-  //   alignItems: "center",
-  // },
   title: {
     color: theme.colors.textPrimary,
     fontFamily: theme.font.family.bold,
@@ -394,15 +569,22 @@ const styles = StyleSheet.create({
   content: {
     padding: theme.spacing.lg,
   },
-  card: {
+  emptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: theme.spacing.xxl,
+  },
+  emptyText: {
+    color: theme.colors.textSecondary,
+    fontFamily: theme.font.family.regular,
+    fontSize: theme.font.size.md,
+  },
+  donationCard: {
     backgroundColor: theme.colors.backgroundSecondary,
     borderRadius: 16,
     padding: theme.spacing.md,
     marginBottom: theme.spacing.md,
-  },
-  cardHeader: {
     flexDirection: "row",
-    marginBottom: theme.spacing.md,
   },
   donationImage: {
     width: 80,
@@ -412,7 +594,7 @@ const styles = StyleSheet.create({
   },
   donationInfo: {
     flex: 1,
-    justifyContent: "center",
+    justifyContent: "space-between",
   },
   donationTitle: {
     color: theme.colors.textPrimary,
@@ -424,100 +606,38 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     fontFamily: theme.font.family.regular,
     fontSize: theme.font.size.sm,
+    marginBottom: theme.spacing.sm,
   },
-  recipientInfo: {
+  donationMeta: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: theme.spacing.md,
+    flexWrap: "wrap",
+    gap: theme.spacing.sm,
   },
-  recipientImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: theme.spacing.md,
-  },
-  recipientDetails: {
-    flex: 1,
-  },
-  recipientName: {
-    color: theme.colors.textPrimary,
-    fontFamily: theme.font.family.bold,
-    fontSize: theme.font.size.md,
-    marginBottom: theme.spacing.xs,
-  },
-  ratingContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  ratingText: {
-    color: theme.colors.accent,
-    fontFamily: theme.font.family.medium,
-    fontSize: theme.font.size.sm,
-    marginLeft: theme.spacing.xs,
-  },
-  requestCount: {
-    color: theme.colors.textSecondary,
-    fontFamily: theme.font.family.regular,
-    fontSize: theme.font.size.sm,
-    marginLeft: theme.spacing.xs,
-  },
-  contactInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  contactText: {
-    color: theme.colors.textSecondary,
-    fontFamily: theme.font.family.regular,
-    fontSize: theme.font.size.md,
-    marginLeft: theme.spacing.sm,
-  },
-  requestDetails: {
-    marginBottom: theme.spacing.md,
-  },
-  pickupDetails: {
-    marginBottom: theme.spacing.md,
-  },
-  historyDetails: {
-    marginBottom: theme.spacing.md,
-  },
-  detailRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: theme.spacing.xs,
-  },
-  detailText: {
-    color: theme.colors.textSecondary,
-    fontFamily: theme.font.family.regular,
-    fontSize: theme.font.size.md,
-    marginLeft: theme.spacing.sm,
-  },
-  message: {
-    color: theme.colors.textPrimary,
-    fontFamily: theme.font.family.regular,
-    fontSize: theme.font.size.md,
-    marginTop: theme.spacing.sm,
-    fontStyle: "italic",
-  },
-  actionButtons: {
-    flexDirection: "column",
-  },
-  statusContainer: {
-    alignItems: "center",
-    padding: theme.spacing.md,
-    backgroundColor: theme.colors.background,
-    borderRadius: theme.borderRadius.round,
+  statusBadge: {
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
+    borderRadius: theme.borderRadius.sm,
   },
   statusText: {
-    fontFamily: theme.font.family.medium,
-    fontSize: theme.font.size.md,
     color: theme.colors.textPrimary,
+    fontFamily: theme.font.family.medium,
+    fontSize: theme.font.size.xs,
   },
-  approvedText: {
-    color: theme.colors.accent,
+  metaItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.xs,
   },
-  rejectedText: {
-    color: theme.colors.error,
+  metaText: {
+    color: theme.colors.textSecondary,
+    fontFamily: theme.font.family.regular,
+    fontSize: theme.font.size.xs,
   },
-})
+  pickupInfo: {
+    marginBottom: theme.spacing.sm,
+    gap: theme.spacing.xs,
+  },
+});
 
-export default DonationActivityScreen 
+export default DonationActivityScreen;

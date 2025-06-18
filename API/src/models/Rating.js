@@ -1,65 +1,90 @@
-const db = require("../config/db");
+const pool = require("../config/db");
 
 class Rating {
   static getRatings(callback) {
     const query = `
-        SELECT 
-          rating_id,
-          donation_id,
-          user_id,
-          rate,
-          review,
-          created_at
-        FROM ratings
-      `;
+      SELECT 
+        rating_id,
+        donation_id,
+        user_id,
+        rate,
+        review,
+        created_at
+      FROM ratings
+    `;
 
-    db.query(query, callback);
+    pool.query(query, (err, result) => {
+      if (err) return callback(err, null);
+      return callback(null, result.rows);
+    });
   }
 
   static getRatingById(rating_id, callback) {
     const query = `
-           SELECT 
-          rating_id,
-          donation_id,
-          user_id,
-          rate,
-          review,
-          created_at
-        FROM ratings
-        WHERE rating_id = ?
-      `;
-    db.query(query, [rating_id], (err, results) => {
-      if (err) {
-        return callback(err, null);
-      }
-      if (results.length === 0) {
-        return callback(null, null);
-      }
-      return callback(null, results[0]);
+      SELECT 
+        rating_id,
+        donation_id,
+        user_id,
+        rate,
+        review,
+        created_at
+      FROM ratings
+      WHERE rating_id = $1
+    `;
+
+    pool.query(query, [rating_id], (err, result) => {
+      if (err) return callback(err, null);
+      if (result.rows.length === 0) return callback(null, null);
+      return callback(null, result.rows[0]);
     });
   }
 
-  static CreateRating(data, callback) {
+  static createRating(data, callback) {
     const fields = [];
     const values = [];
     const params = [];
 
+    let index = 1;
+
     for (let key in data) {
-      updates.push(`${key} = ?`);
+      fields.push(key);
+      values.push(`$${index}`);
       params.push(data[key]);
+      index++;
     }
 
     const query = `
       INSERT INTO ratings (${fields.join(", ")})
       VALUES (${values.join(", ")})
+      RETURNING *
     `;
 
-    db.query(query, params, (err, result) => {
-      if (err) {
-        return callback(err, null);
-      }
-      const newData = { rating_id: result.insertId, ...data };
-      return callback(null, newData);
+    pool.query(query, params, (err, result) => {
+      if (err) return callback(err, null);
+      return callback(null, result.rows[0]);
+    });
+  }
+
+  static getRatingsByDonorId(donor_id, callback) {
+    const query = `
+      SELECT
+        r.rating_id,
+        r.rate,
+        r.review,
+        d.donation_id,
+        d.title AS donation_title,
+        d.donation_picture,
+        u.user_name AS rater_name,
+        u.profile_picture AS rater_picture
+      FROM ratings r
+      JOIN donations d ON r.donation_id = d.donation_id
+      JOIN users u ON r.user_id = u.user_id
+      WHERE d.user_id = $1
+    `;
+
+    pool.query(query, [donor_id], (err, result) => {
+      if (err) return callback(err, null);
+      return callback(null, result.rows);
     });
   }
 }

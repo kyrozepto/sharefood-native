@@ -9,6 +9,7 @@ export const getDonations = async (): Promise<Donation[]> => {
 
   if (!response.ok) {
     const error = await response.json();
+    console.log(error.message);
     throw new Error(error.message || "Failed to fetch donations");
   }
 
@@ -52,16 +53,16 @@ export const updateDonation = async (
   data: UpdateDonationPayload,
   token: string
 ): Promise<{ message: string }> => {
-  const formData = new FormData();
-  formData.append("donation_status", data.donation_status);
-
   const response = await fetch(`${BASE_URL}/api/donation/${id}`, {
     method: "PUT",
     headers: {
       Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
     },
-    body: formData,
+    body: JSON.stringify(data),
   });
+
+  console.log("data: ", data);
 
   if (!response.ok) {
     const error = await response.json();

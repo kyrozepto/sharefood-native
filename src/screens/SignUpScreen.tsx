@@ -22,7 +22,7 @@ import Button from "../components/Button";
 import { registerUser } from "../services/auth";
 import { useAuth } from "../context/auth";
 
-type UserRole = "donor" | "recipient";
+type UserRole = "donor" | "receiver";
 
 const SignUpScreen: React.FC = () => {
   const navigation =
@@ -267,11 +267,11 @@ const SignUpScreen: React.FC = () => {
             <TouchableOpacity
               style={[
                 styles.roleButton,
-                role === "recipient" && styles.roleButtonActive,
+                role === "receiver" && styles.roleButtonActive,
                 errors.role && !role && styles.roleButtonError,
               ]}
               onPress={() => {
-                setRole("recipient");
+                setRole("receiver");
                 clearError("role");
               }}
             >
@@ -279,7 +279,7 @@ const SignUpScreen: React.FC = () => {
                 name="people"
                 size={24}
                 color={
-                  role === "recipient"
+                  role === "receiver"
                     ? theme.colors.accent
                     : theme.colors.textPrimary
                 }
@@ -287,7 +287,7 @@ const SignUpScreen: React.FC = () => {
               <Text
                 style={[
                   styles.roleText,
-                  role === "recipient" && styles.roleTextActive,
+                  role === "receiver" && styles.roleTextActive,
                 ]}
               >
                 Receive{"\n"}Food
