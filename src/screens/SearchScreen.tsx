@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -13,7 +13,7 @@ import {
   Modal,
   ActivityIndicator,
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import type { RootNavigationProp } from "../navigation/types";
 import { globalStyles, theme } from "../utils/theme";
@@ -21,6 +21,7 @@ import Button from "../components/Button";
 import { getDonations } from "../services/donation";
 import { useAuth } from "../context/auth";
 import type { Donation } from "../interfaces/donationInterface";
+import { getUserById } from "../services/user";
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -113,6 +114,7 @@ const getStatusColor = (status: string) => {
 
 interface DonationWithDistance extends Donation {
   distance?: number;
+  user_name?: string;
 }
 
 const SearchScreen: React.FC = () => {
@@ -121,7 +123,7 @@ const SearchScreen: React.FC = () => {
   const [filteredItems, setFilteredItems] = useState<DonationWithDistance[]>(
     []
   );
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
@@ -131,19 +133,15 @@ const SearchScreen: React.FC = () => {
 
   const capitalize = (text: string) =>
     text.charAt(0).toUpperCase() + text.slice(1);
-
   useEffect(() => {
     const fetchData = async () => {
       try {
         const data = await getDonations();
-        // Calculate distance for each donation
-        const donationsWithDistance: DonationWithDistance[] = data.map(
-          (donation: Donation) => {
-            let distance = 0;
 
-            // Parse the location string to get coordinates
+        const donationsWithExtras: DonationWithDistance[] = await Promise.all(
+          data.map(async (donation: Donation) => {
+            let distance = 999;
             const coordinates = parseLocation(donation.location);
-
             if (coordinates) {
               distance = calculateDistance(
                 FIXED_LOCATION.latitude,
@@ -151,90 +149,101 @@ const SearchScreen: React.FC = () => {
                 coordinates.lat,
                 coordinates.lng
               );
-            } else {
-              // If no valid coordinates, assign a high distance or handle as needed
-              distance = 999; // High distance to push it to the end when sorting by distance
+            }
+
+            let user_name = "Unknown";
+            try {
+              const userData = await getUserById(donation.user_id, token!);
+              user_name = userData.user_name;
+            } catch (error) {
+              console.warn(
+                `Failed to fetch user for donation ${donation.donation_id}`,
+                error
+              );
             }
 
             return {
               ...donation,
-              distance: Math.round(distance * 10) / 10, // Round to 1 decimal place
+              distance: Math.round(distance * 10) / 10,
+              user_name, // inject user_name
             };
-          }
+          })
         );
 
-        setDonations(donationsWithDistance);
+        setDonations(donationsWithExtras);
       } catch (error) {
         console.error("Error fetching donations:", error);
       } finally {
         setLoading(false);
       }
     };
+
     fetchData();
   }, []);
 
-  useEffect(() => {
-    let filtered = [...donations];
+  useFocusEffect(
+    useCallback(() => {
+      let filtered = [...donations];
 
-    if (searchQuery.trim()) {
-      filtered = filtered.filter((item) =>
-        item.title.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
-
-    if (user?.user_id) {
-      filtered = filtered.filter((item) => item.user_id !== user.user_id);
-    }
-
-    if (selectedCategory !== "all") {
-      filtered = filtered.filter(
-        (item) => item.category?.toLowerCase() === selectedCategory
-      );
-    }
-
-    filtered = filtered.filter(
-      (item) => item.donation_status?.toLowerCase() === "available"
-    );
-
-    // Filter by distance
-    const maxDistanceNum = parseFloat(maxDistance);
-    if (!isNaN(maxDistanceNum)) {
-      filtered = filtered.filter(
-        (item) => (item.distance || 0) <= maxDistanceNum
-      );
-    }
-
-    // Sorting logic
-    filtered.sort((a, b) => {
-      switch (selectedSort) {
-        case "distance":
-          return (a.distance || 0) - (b.distance || 0);
-        case "quantity":
-          return b.quantity_value - a.quantity_value;
-        case "expiry":
-          return (
-            new Date(b.expiry_date).getTime() -
-            new Date(a.expiry_date).getTime()
-          );
-        case "newest":
-          return (
-            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-          );
-        default:
-          return 0;
+      if (searchQuery.trim()) {
+        filtered = filtered.filter((item) =>
+          item.title.toLowerCase().includes(searchQuery.toLowerCase())
+        );
       }
-    });
 
-    const finalItems = searchQuery.trim() ? filtered : filtered.slice(0, 10);
-    setFilteredItems(finalItems);
-  }, [
-    searchQuery,
-    selectedCategory,
-    selectedSort,
-    maxDistance,
-    donations,
-    user,
-  ]);
+      if (user?.user_id) {
+        filtered = filtered.filter((item) => item.user_id !== user.user_id);
+      }
+
+      if (selectedCategory !== "all") {
+        filtered = filtered.filter(
+          (item) => item.category?.toLowerCase() === selectedCategory
+        );
+      }
+
+      filtered = filtered.filter(
+        (item) => item.donation_status?.toLowerCase() === "available"
+      );
+
+      const maxDistanceNum = parseFloat(maxDistance);
+      if (!isNaN(maxDistanceNum)) {
+        filtered = filtered.filter(
+          (item) => (item.distance || 0) <= maxDistanceNum
+        );
+      }
+
+      filtered.sort((a, b) => {
+        switch (selectedSort) {
+          case "distance":
+            return (a.distance || 0) - (b.distance || 0);
+          case "quantity":
+            return b.quantity_value - a.quantity_value;
+          case "expiry":
+            return (
+              new Date(b.expiry_date).getTime() -
+              new Date(a.expiry_date).getTime()
+            );
+          case "newest":
+            return (
+              new Date(b.created_at).getTime() -
+              new Date(a.created_at).getTime()
+            );
+          default:
+            return 0;
+        }
+      });
+
+      const finalItems = searchQuery.trim() ? filtered : filtered.slice(0, 10);
+      setFilteredItems(finalItems);
+    }, [
+      searchQuery,
+      selectedCategory,
+      selectedSort,
+      maxDistance,
+      donations,
+      user,
+    ])
+  );
 
   const handleFoodItemPress = (item: DonationWithDistance) => {
     navigation.navigate("DonationDetail", {
@@ -357,6 +366,7 @@ const SearchScreen: React.FC = () => {
                       "https://via.placeholder.com/100",
                   }}
                   style={styles.foodImage}
+                  resizeMode="cover"
                 />
                 <View style={styles.foodInfo}>
                   <View style={styles.statusTitle}>
@@ -379,6 +389,7 @@ const SearchScreen: React.FC = () => {
                       <Text style={styles.statusText}>{displayStatus}</Text>
                     </View>
                   </View>
+                  <Text style={styles.metaText}>{item.user_name}</Text>
 
                   <Text style={styles.foodQuantity}>
                     {item.quantity_value} {item.quantity_unit}
@@ -605,7 +616,9 @@ const styles = StyleSheet.create({
   },
   foodImage: {
     width: 100,
-    height: 100,
+    height: "100%",
+    borderTopLeftRadius: theme.borderRadius.lg,
+    borderBottomLeftRadius: theme.borderRadius.lg,
   },
   foodInfo: {
     flex: 1,
@@ -637,7 +650,6 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     fontFamily: theme.font.family.regular,
     fontSize: theme.font.size.sm,
-    marginLeft: theme.spacing.xs,
   },
   emptyState: {
     alignItems: "center",

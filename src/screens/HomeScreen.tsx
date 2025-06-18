@@ -426,7 +426,9 @@ const styles = StyleSheet.create({
   },
   donationImage: {
     width: 100,
-    height: 100,
+    height: "100%",
+    borderTopLeftRadius: theme.borderRadius.lg,
+    borderBottomLeftRadius: theme.borderRadius.lg,
   },
   donationInfo: {
     flex: 1,

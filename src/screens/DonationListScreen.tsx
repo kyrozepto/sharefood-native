@@ -177,21 +177,6 @@ const DonationListScreen: React.FC = () => {
                     </Text>
 
                     <View style={styles.donationMetaRow}>
-                      <View style={styles.metaItemLocation}>
-                        <Ionicons
-                          name="location"
-                          size={16}
-                          color={theme.colors.textSecondary}
-                          style={styles.metaIcon}
-                        />
-                        <Text
-                          style={styles.metaText}
-                          numberOfLines={1}
-                          ellipsizeMode="tail"
-                        >
-                          {donation.location}
-                        </Text>
-                      </View>
                       <View style={styles.metaItemDate}>
                         <Ionicons
                           name="time"
@@ -290,7 +275,9 @@ const styles = StyleSheet.create({
   },
   donationImage: {
     width: 100,
-    height: 100,
+    height: "100%",
+    borderTopLeftRadius: theme.borderRadius.lg,
+    borderBottomLeftRadius: theme.borderRadius.lg,
   },
   donationInfo: {
     flex: 1,
@@ -313,12 +300,10 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     fontFamily: theme.font.family.regular,
     fontSize: theme.font.size.sm,
-    marginBottom: theme.spacing.sm,
   },
   donationMetaRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
     marginTop: theme.spacing.xs,
   },
   metaItemLocation: {
@@ -330,7 +315,7 @@ const styles = StyleSheet.create({
   metaItemDate: {
     flexDirection: "row",
     alignItems: "center",
-    flexShrink: 0,
+    marginLeft: "auto",
   },
   metaIcon: {
     marginRight: 4,
