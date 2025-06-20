@@ -24,14 +24,11 @@ import { getRequests } from "../services/request";
 import type { Donation } from "../interfaces/donationInterface";
 import type { RequestItem } from "../interfaces/requestInterface";
 import { useAuth } from "../context/auth";
-
-// ✅ Location Map Component
 interface LocationMapProps {
-  location: string; // Location string in format "lat,lng"
+  location: string;
 }
 
 const LocationMap: React.FC<LocationMapProps> = ({ location }) => {
-  // Parse coordinates from location string
   const parseCoordinates = (locationStr: string) => {
     try {
       const coords = locationStr.split(",");
@@ -52,10 +49,8 @@ const LocationMap: React.FC<LocationMapProps> = ({ location }) => {
   const { lat, lng } = parseCoordinates(location);
   const zoom = 15;
 
-  // Generate a readable location name (you might want to use reverse geocoding for real names)
   const locationName = `Lokasi Donasi (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
 
-  // Create OpenStreetMap HTML for WebView
   const mapHtml = `
     <!DOCTYPE html>
     <html>
@@ -139,7 +134,6 @@ const DonationDetailScreen: React.FC = () => {
   const route = useRoute<RootRouteProp<"DonationDetail">>();
   const { donationId } = route.params;
 
-  // Get current user info from auth context
   const { user, token } = useAuth();
 
   const [donation, setDonation] = useState<Donation | null>(null);
@@ -190,7 +184,7 @@ const DonationDetailScreen: React.FC = () => {
 
     if (diff <= 0) return "Expired";
 
-    const hoursLeft = Math.ceil(diff / (1000 * 60 * 60)); // Round up to nearest hour
+    const hoursLeft = Math.ceil(diff / (1000 * 60 * 60));
     return `${hoursLeft} hour${hoursLeft > 1 ? "s" : ""} left`;
   };
 
@@ -217,7 +211,6 @@ const DonationDetailScreen: React.FC = () => {
                 token
               );
 
-              // Update local state
               setDonation((prev) =>
                 prev ? { ...prev, donation_status: "canceled" } : null
               );
@@ -246,13 +239,10 @@ const DonationDetailScreen: React.FC = () => {
     if (!donation || !user) return false;
 
     if (isUserTheDonor()) {
-      // Donor viewing their own donation — show cancel button if still available
       return donation.donation_status === "available";
     } else {
-      // If current user is a donor, they should not request from others
       if (user.user_type === "donor") return false;
 
-      // Only show request button to non-donor users
       return donation.donation_status === "available";
     }
   };
@@ -261,7 +251,6 @@ const DonationDetailScreen: React.FC = () => {
     if (!shouldShowButton() || !donation) return null;
 
     if (isUserTheDonor()) {
-      // User is the donor - show cancel button
       return (
         <Button
           title={updating ? "Canceling..." : "Cancel Donation"}
@@ -271,7 +260,6 @@ const DonationDetailScreen: React.FC = () => {
         />
       );
     } else {
-      // User is not the donor - show request button
       return (
         <Button
           title="Request Donation"
@@ -358,7 +346,6 @@ const DonationDetailScreen: React.FC = () => {
           )}
         </View>
 
-        {/* ✅ Location Map Section */}
         <LocationMap location={donation.location} />
 
         <Text style={styles.sectionTitle}>Description</Text>

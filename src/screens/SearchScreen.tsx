@@ -25,7 +25,7 @@ import { getUserById } from "../services/user";
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
-// Fixed location coordinates
+// Fixed location coordinates = Gunung Anyar
 const FIXED_LOCATION = {
   latitude: -7.332593,
   longitude: 112.788228,
@@ -53,14 +53,13 @@ const sortOptions = [
   { id: "expiry", label: "Kadaluarsa Terlama", icon: "hourglass" as IconName },
 ];
 
-// Function to calculate distance between two coordinates using Haversine formula
 const calculateDistance = (
   lat1: number,
   lon1: number,
   lat2: number,
   lon2: number
 ): number => {
-  const R = 6371; // Radius of the Earth in kilometers
+  const R = 6371;
   const dLat = (lat2 - lat1) * (Math.PI / 180);
   const dLon = (lon2 - lon1) * (Math.PI / 180);
   const a =
@@ -70,11 +69,10 @@ const calculateDistance = (
       Math.sin(dLon / 2) *
       Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  const distance = R * c; // Distance in kilometers
+  const distance = R * c;
   return distance;
 };
 
-// Function to parse location string and return coordinates
 const parseLocation = (
   locationString: string
 ): { lat: number; lng: number } | null => {
@@ -165,7 +163,7 @@ const SearchScreen: React.FC = () => {
             return {
               ...donation,
               distance: Math.round(distance * 10) / 10,
-              user_name, // inject user_name
+              user_name,
             };
           })
         );

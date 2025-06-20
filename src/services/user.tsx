@@ -1,6 +1,6 @@
 import { User } from "../interfaces/userInterface";
 
-const BASE_URL = "http://10.0.2.2:5000";
+const BASE_URL = "https://sharefood-api-b35u.onrender.com";
 
 export const getUsers = async () => {
   const response = await fetch(`${BASE_URL}/api/users`);
@@ -44,4 +44,26 @@ export const updateUser = async (
   }
 
   return response.json();
+};
+
+export const resetPassword = async (
+  email: string,
+  new_password: string
+): Promise<{ message: string }> => {
+  const response = await fetch(`${BASE_URL}/api/user/reset-password`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+
+    body: JSON.stringify({ email, new_password }),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to reset password");
+  }
+
+  return data;
 };

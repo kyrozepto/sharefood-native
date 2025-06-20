@@ -38,7 +38,6 @@ class Request {
       }
     }
 
-    // Double-check that we have fields to insert
     if (fields.length === 0) {
       return callback(
         new Error("No valid fields provided for request creation"),
@@ -97,7 +96,6 @@ class Request {
       );
     }
 
-    // Step 1: Fetch the current request to compare old status
     const selectQuery = `SELECT * FROM requests WHERE request_id = $1`;
     pool.query(selectQuery, [request_id], (selectErr, selectRes) => {
       if (selectErr || selectRes.rows.length === 0) {
@@ -109,7 +107,6 @@ class Request {
       const oldStatus = currentRequest.request_status;
       const donationId = currentRequest.donation_id;
 
-      // Step 2: Update the request
       params.push(request_id);
       const updateQuery = `
         UPDATE requests 
@@ -126,9 +123,7 @@ class Request {
 
         const updatedRequest = updateRes.rows[0];
 
-        // Step 3: Handle donation status changes
         if (data.request_status === "approved" && donationId) {
-          // If approved, mark donation as confirmed
           const confirmDonationQuery = `
             UPDATE donations 
             SET donation_status = 'confirmed' 
@@ -146,7 +141,6 @@ class Request {
           data.request_status === "completed" &&
           donationId
         ) {
-          // If completing an approved request, mark donation as completed
           const completeDonationQuery = `
             UPDATE donations 
             SET donation_status = 'completed' 

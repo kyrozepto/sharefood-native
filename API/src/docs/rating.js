@@ -14,10 +14,9 @@
  *         rate:
  *           type: number
  *           format: float
- *           minimum: 1
- *           maximum: 5
  *         review:
  *           type: string
+ *           nullable: true
  *         created_at:
  *           type: string
  *           format: date-time
@@ -29,12 +28,34 @@
  *         - rate
  *       properties:
  *         donation_id:
- *           type: string
+ *           type: integer
  *         rate:
  *           type: number
+ *           format: float
  *           minimum: 1
  *           maximum: 5
  *         review:
+ *           type: string
+ *           nullable: true
+ *
+ *     RatingByDonor:
+ *       type: object
+ *       properties:
+ *         rating_id:
+ *           type: integer
+ *         rate:
+ *           type: number
+ *         review:
+ *           type: string
+ *         donation_id:
+ *           type: integer
+ *         donation_title:
+ *           type: string
+ *         donation_picture:
+ *           type: string
+ *         rater_name:
+ *           type: string
+ *         rater_picture:
  *           type: string
  */
 
@@ -42,12 +63,12 @@
  * @swagger
  * tags:
  *   name: Ratings
- *   description: Submit and retrieve donation ratings
+ *   description: Manage donation ratings
  */
 
 /**
  * @swagger
- * /rating:
+ * /ratings:
  *   get:
  *     summary: Get all ratings
  *     tags: [Ratings]
@@ -60,11 +81,13 @@
  *               type: array
  *               items:
  *                 $ref: '#/components/schemas/Rating'
+ *       500:
+ *         description: Server error
  */
 
 /**
  * @swagger
- * /rating/{id}:
+ * /ratings/{id}:
  *   get:
  *     summary: Get a rating by ID
  *     tags: [Ratings]
@@ -77,27 +100,29 @@
  *         description: ID of the rating
  *     responses:
  *       200:
- *         description: Rating details
+ *         description: Rating data
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Rating'
  *       404:
  *         description: Rating not found
+ *       500:
+ *         description: Server error
  */
 
 /**
  * @swagger
- * /rating:
+ * /ratings:
  *   post:
- *     summary: Submit a new rating for a completed donation
+ *     summary: Create a new rating
  *     tags: [Ratings]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
- *         application/x-www-form-urlencoded:
+ *         application/json:
  *           schema:
  *             $ref: '#/components/schemas/RatingInput'
  *     responses:
@@ -108,7 +133,33 @@
  *             schema:
  *               $ref: '#/components/schemas/Rating'
  *       400:
- *         description: Validation error or donation not completed
+ *         description: Validation error
+ *       500:
+ *         description: Server error
+ */
+
+/**
+ * @swagger
+ * /ratings/donor/{donorId}:
+ *   get:
+ *     summary: Get ratings for a specific donor
+ *     tags: [Ratings]
+ *     parameters:
+ *       - in: path
+ *         name: donorId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID of the donor (owner of donations)
+ *     responses:
+ *       200:
+ *         description: Ratings with donation and rater info
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/RatingByDonor'
  *       500:
  *         description: Server error
  */

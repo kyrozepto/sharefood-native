@@ -86,7 +86,6 @@ const NotificationsScreen: React.FC = () => {
           }
           break;
         case "rating":
-          // Add logic if needed
           break;
       }
     } catch (error) {

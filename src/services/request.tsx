@@ -2,7 +2,7 @@ import { RequestItem } from "../interfaces/requestInterface";
 import { CreateRequestPayload } from "../interfaces/requestInterface";
 import { UpdateRequestPayload } from "../interfaces/requestInterface";
 
-const BASE_URL = "http://10.0.2.2:5000";
+const BASE_URL = "https://sharefood-api-b35u.onrender.com";
 
 export const getRequests = async (): Promise<RequestItem[]> => {
   const response = await fetch(`${BASE_URL}/api/request`);
@@ -15,7 +15,6 @@ export const getRequests = async (): Promise<RequestItem[]> => {
   return response.json();
 };
 
-// services/request.ts
 export const getRequestById = async (
   requestId: number,
   token: string

@@ -19,7 +19,7 @@ import type { RootNavigationProp } from "../navigation/types";
 import { globalStyles, theme } from "../utils/theme";
 import { getDonations } from "../services/donation";
 import type { Donation } from "../interfaces/donationInterface";
-import { useAuth } from "../context/auth"; // Make sure this is the right path
+import { useAuth } from "../context/auth";
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -36,7 +36,7 @@ const categories = [
 
 const DonationListScreen: React.FC = () => {
   const navigation = useNavigation<RootNavigationProp>();
-  const { user } = useAuth(); // <-- Get current user
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [donations, setDonations] = useState<Donation[]>([]);

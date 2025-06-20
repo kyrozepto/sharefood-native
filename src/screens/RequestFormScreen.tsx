@@ -49,7 +49,6 @@ interface ExistingRequest {
   created_at: string;
 }
 
-// ✅ Date formatting function
 const formatDateIndo = (dateString: string) => {
   const date = new Date(dateString);
   return new Intl.DateTimeFormat("id-ID", {
@@ -59,13 +58,11 @@ const formatDateIndo = (dateString: string) => {
   }).format(date);
 };
 
-// ✅ Location Map Component
 interface LocationMapProps {
-  location: string; // Location string in format "lat,lng"
+  location: string;
 }
 
 const LocationMap: React.FC<LocationMapProps> = ({ location }) => {
-  // Parse coordinates from location string
   const parseCoordinates = (locationStr: string) => {
     try {
       const coords = locationStr.split(",");
@@ -86,12 +83,10 @@ const LocationMap: React.FC<LocationMapProps> = ({ location }) => {
   const { lat, lng } = parseCoordinates(location);
   const zoom = 15;
 
-  // Generate a readable location name (you might want to use reverse geocoding for real names)
   const locationName = `Lokasi Pengambilan (${lat.toFixed(4)}, ${lng.toFixed(
     4
   )})`;
 
-  // Create OpenStreetMap HTML for WebView
   const mapHtml = `
     <!DOCTYPE html>
     <html>
@@ -184,13 +179,11 @@ const RequestFormScreen: React.FC = () => {
     useState<ExistingRequest | null>(null);
   const [checkingRequest, setCheckingRequest] = useState(true);
 
-  // Check if user already has a request for this donation
   const checkExistingRequest = async () => {
     if (!user || !token) return;
 
     try {
       setCheckingRequest(true);
-      // Get all requests and filter for current user and donation
       const allRequests = await getRequests();
       const foundRequest = allRequests.find(
         (req: any) =>
@@ -250,7 +243,6 @@ const RequestFormScreen: React.FC = () => {
 
       await createRequest(requestData, token);
       setShowSuccessModal(true);
-      // Refresh the request status after successful submission
       await checkExistingRequest();
     } catch (error) {
       console.error("Error creating request:", error);
@@ -280,7 +272,6 @@ const RequestFormScreen: React.FC = () => {
           onPress: async () => {
             try {
               setIsLoading(true);
-              // Use updateRequest to change status to 'canceled'
               const { updateRequest } = await import("../services/request");
               await updateRequest(
                 existingRequest.request_id,
@@ -720,7 +711,6 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.xs,
     lineHeight: 22,
   },
-  // ✅ New Location Map Styles
   locationMapContainer: {
     marginVertical: theme.spacing.md,
     padding: theme.spacing.md,
@@ -789,7 +779,6 @@ const styles = StyleSheet.create({
     fontFamily: theme.font.family.medium,
     fontSize: theme.font.size.sm,
   },
-  // ✅ Request Status Styles
   requestStatusContainer: {
     padding: theme.spacing.md,
     backgroundColor: theme.colors.background,
@@ -831,7 +820,6 @@ const styles = StyleSheet.create({
     fontSize: theme.font.size.md,
     marginTop: theme.spacing.xs,
   },
-  // ✅ Status Button Styles
   statusButtonContainer: {
     gap: theme.spacing.md,
   },

@@ -18,51 +18,81 @@
  *           enum: [donor, receiver]
  *         profile_picture:
  *           type: string
- *           nullable: true
+ *           format: uri
  *         created_at:
  *           type: string
  *           format: date-time
  *
- *     UserInput:
+ *     UserRegisterInput:
  *       type: object
  *       required:
  *         - user_name
- *         - email
  *         - password
- *         - confirm_password
+ *         - email
  *         - user_type
  *       properties:
  *         user_name:
  *           type: string
+ *           maxLength: 255
+ *         password:
+ *           type: string
+ *           minLength: 8
+ *           description: Must contain at least one uppercase letter
+ *         phone:
+ *           type: string
+ *           maxLength: 20
  *         email:
+ *           type: string
+ *           maxLength: 100
+ *           format: email
+ *         user_type:
+ *           type: string
+ *           enum: [donor, receiver]
+ *         profile_picture:
+ *           type: string
+ *           format: uri
+ *
+ *     UserUpdateInput:
+ *       type: object
+ *       properties:
+ *         user_name:
  *           type: string
  *         password:
  *           type: string
- *         confirm_password:
- *           type: string
  *         phone:
+ *           type: string
+ *         email:
  *           type: string
  *         user_type:
  *           type: string
  *           enum: [donor, receiver]
+ *         profile_picture:
+ *           type: string
+ *           format: uri
  *
- *   securitySchemes:
- *     bearerAuth:
- *       type: http
- *       scheme: bearer
- *       bearerFormat: JWT
+ *     UserLoginInput:
+ *       type: object
+ *       required:
+ *         - email
+ *         - password
+ *       properties:
+ *         email:
+ *           type: string
+ *           format: email
+ *         password:
+ *           type: string
  */
 
 /**
  * @swagger
  * tags:
  *   name: Users
- *   description: User management and authentication
+ *   description: Manage user accounts
  */
 
 /**
  * @swagger
- * /user:
+ * /users:
  *   get:
  *     summary: Get all users
  *     tags: [Users]
@@ -75,21 +105,23 @@
  *               type: array
  *               items:
  *                 $ref: '#/components/schemas/User'
+ *       500:
+ *         description: Server error
  */
 
 /**
  * @swagger
- * /user/{id}:
+ * /users/{id}:
  *   get:
- *     summary: Get a user by ID
+ *     summary: Get user by ID
  *     tags: [Users]
  *     parameters:
  *       - in: path
  *         name: id
+ *         required: true
  *         schema:
  *           type: integer
- *         required: true
- *         description: ID of the user
+ *         description: User ID
  *     responses:
  *       200:
  *         description: User object
@@ -99,95 +131,50 @@
  *               $ref: '#/components/schemas/User'
  *       404:
  *         description: User not found
+ *       500:
+ *         description: Server error
  */
 
 /**
  * @swagger
- * /user:
+ * /auth/register:
  *   post:
- *     summary: Create a new user
+ *     summary: Register a new user
  *     tags: [Users]
  *     requestBody:
  *       required: true
  *       content:
  *         application/x-www-form-urlencoded:
  *           schema:
- *             $ref: '#/components/schemas/UserInput'
+ *             $ref: '#/components/schemas/UserRegisterInput'
  *     responses:
  *       201:
  *         description: User created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/User'
  *       400:
  *         description: Validation error
+ *       500:
+ *         description: Server error
  */
 
 /**
  * @swagger
- * /user/{id}:
- *   put:
- *     summary: Update user details
- *     tags: [Users]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         schema:
- *           type: integer
- *         required: true
- *         description: ID of the user to update
- *     requestBody:
- *       required: true
- *       content:
- *         multipart/form-data:
- *           schema:
- *             type: object
- *             properties:
- *               user_name:
- *                 type: string
- *               email:
- *                 type: string
- *               password:
- *                 type: string
- *               phone:
- *                 type: string
- *               user_type:
- *                 type: string
- *                 enum: [donor, receiver]
- *               profile_picture:
- *                 type: string
- *                 format: binary
- *     responses:
- *       200:
- *         description: User updated successfully
- *       400:
- *         description: Validation error
- *       404:
- *         description: User not found
- */
-
-/**
- * @swagger
- * /user/login:
+ * /auth/login:
  *   post:
- *     summary: Login a user
+ *     summary: Login user and return token
  *     tags: [Users]
  *     requestBody:
  *       required: true
  *       content:
  *         application/x-www-form-urlencoded:
  *           schema:
- *             type: object
- *             required:
- *               - email
- *               - password
- *             properties:
- *               email:
- *                 type: string
- *               password:
- *                 type: string
+ *             $ref: '#/components/schemas/UserLoginInput'
  *     responses:
  *       200:
- *         description: Successful login, returns token and user
+ *         description: Login successful
  *         content:
  *           application/json:
  *             schema:
@@ -195,10 +182,75 @@
  *               properties:
  *                 message:
  *                   type: string
- *                 user:
- *                   $ref: '#/components/schemas/User'
  *                 token:
  *                   type: string
+ *                 user:
+ *                   $ref: '#/components/schemas/User'
  *       401:
  *         description: Invalid credentials
+ *       500:
+ *         description: Server error
+ */
+
+/**
+ * @swagger
+ * /users/{id}:
+ *   put:
+ *     summary: Update user information
+ *     tags: [Users]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             $ref: '#/components/schemas/UserUpdateInput'
+ *     responses:
+ *       200:
+ *         description: User updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 updated_fields:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                 profile_picture:
+ *                   type: string
+ *       400:
+ *         description: Invalid or no update data
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Server error
+ */
+
+/**
+ * @swagger
+ * /auth/me:
+ *   get:
+ *     summary: Get current authenticated user
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/User'
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
  */

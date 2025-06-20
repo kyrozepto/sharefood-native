@@ -75,7 +75,7 @@ const AccountSettingsScreen: React.FC = () => {
           if (!result.canceled) {
             setProfileImage(result.assets[0].uri);
             setProfileImageChanged(true);
-            setIsEditing(true); // ✅ ADD THIS LINE
+            setIsEditing(true);
             Alert.alert("Success", "Profile picture updated!");
           }
         },

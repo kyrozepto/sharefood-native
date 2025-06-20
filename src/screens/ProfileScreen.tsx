@@ -37,12 +37,7 @@ const ProfileScreen: React.FC = () => {
   }>({ count: 0, totalQuantity: 0, impactKg: 0 });
   const [averageRating, setAverageRating] = useState<number | null>(null);
 
-  // Check if user is a donor (modify this condition based on your user role logic)
   const isDonor = userData?.user_type === "donor";
-  // Alternative approaches if you use different field names:
-  // const isDonor = userData?.account_type === 'donor';
-  // const isDonor = userData?.is_donor === true;
-  // const isDonor = user?.user_type === 'donor';
 
   useFocusEffect(
     React.useCallback(() => {
@@ -53,7 +48,6 @@ const ProfileScreen: React.FC = () => {
             const userInfo = await getUserById(user.user_id, token);
             setUserData(userInfo);
 
-            // Only fetch donation stats if user is a donor
             if (userInfo?.user_type === "donor") {
               const allDonations = await getDonations();
               const userDonations = allDonations.filter(
@@ -181,7 +175,7 @@ const ProfileScreen: React.FC = () => {
         <Text style={styles.username}>{userData?.user_name}</Text>
         <Text style={styles.email}>{userData?.email}</Text>
 
-        {/* Only show donation stats for donors */}
+        {/* Only show donation stats for donator */}
         {isDonor && (
           <View style={styles.followSection}>
             <TouchableOpacity

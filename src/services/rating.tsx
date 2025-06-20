@@ -1,8 +1,7 @@
 import { RatingItem, CreateRatingPayload } from "../interfaces/ratingInterface";
 
-const BASE_URL = "http://10.0.2.2:5000";
+const BASE_URL = "https://sharefood-api-b35u.onrender.com";
 
-// Get all ratings (no auth required)
 export const getRatings = async (): Promise<RatingItem[]> => {
   const response = await fetch(`${BASE_URL}/api/rating`);
 
@@ -14,7 +13,6 @@ export const getRatings = async (): Promise<RatingItem[]> => {
   return response.json();
 };
 
-// Get rating by ID (auth optional, add token if needed)
 export const getRatingById = async (
   ratingId: number,
   token?: string
@@ -36,7 +34,6 @@ export const getRatingById = async (
   return response.json();
 };
 
-// Create rating
 export const createRating = async (
   data: CreateRatingPayload,
   token: string

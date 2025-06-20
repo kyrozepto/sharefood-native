@@ -2,7 +2,7 @@ import { Donation } from "../interfaces/donationInterface";
 import { CreateDonationPayload } from "../interfaces/donationInterface";
 import { UpdateDonationPayload } from "../interfaces/donationInterface";
 
-const BASE_URL = "http://10.0.2.2:5000";
+const BASE_URL = "https://sharefood-api-b35u.onrender.com";
 
 export const getDonations = async (): Promise<Donation[]> => {
   const response = await fetch(`${BASE_URL}/api/donation`);

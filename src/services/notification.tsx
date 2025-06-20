@@ -3,9 +3,8 @@ import {
   CreateNotificationPayload,
 } from "../interfaces/notificationInterface";
 
-const BASE_URL = "http://10.0.2.2:5000";
+const BASE_URL = "https://sharefood-api-b35u.onrender.com";
 
-// Get all notifications (admin or test)
 export const getAllNotifications = async (
   token: string
 ): Promise<NotificationItem[]> => {
@@ -23,7 +22,6 @@ export const getAllNotifications = async (
   return response.json();
 };
 
-// Get notifications by user ID
 export const getNotificationsByUserId = async (
   userId: number | string,
   token: string
@@ -42,7 +40,6 @@ export const getNotificationsByUserId = async (
   return response.json();
 };
 
-// Mark notification as read/unread
 export const updateNotificationIsRead = async (
   notificationId: number,
   isRead: boolean,
@@ -63,11 +60,8 @@ export const updateNotificationIsRead = async (
   const contentType = response.headers.get("Content-Type");
   const text = await response.text();
 
-  console.log("✅ Raw text response:", text); // Add this line
-
   try {
     const data = JSON.parse(text);
-    console.log("✅ Parsed JSON response:", data); // Add this line
 
     if (!response.ok) {
       throw new Error(data.message || "Failed to update read status");
@@ -80,7 +74,6 @@ export const updateNotificationIsRead = async (
   }
 };
 
-// Create a manual notification (optional usage)
 export const createNotification = async (
   data: CreateNotificationPayload,
   token: string
@@ -102,7 +95,6 @@ export const createNotification = async (
   return response.json();
 };
 
-// Soft delete a notification
 export const deleteNotification = async (
   notificationIds: number[],
   token: string

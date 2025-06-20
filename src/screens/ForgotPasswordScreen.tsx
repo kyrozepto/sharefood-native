@@ -1,58 +1,83 @@
-"use client"
+"use client";
 
-import type React from "react"
-import { useState } from "react"
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, SafeAreaView } from "react-native"
-import { useNavigation } from "@react-navigation/native"
-import { Ionicons } from "@expo/vector-icons"
-import type { RootNavigationProp } from "../navigation/types"
-import { globalStyles, theme } from "../utils/theme"
-import Button from "../components/Button"
+import type React from "react";
+import { useState } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  TouchableOpacity,
+  SafeAreaView,
+  Alert,
+} from "react-native";
+import { useNavigation } from "@react-navigation/native";
+import { Ionicons } from "@expo/vector-icons";
+import type { RootNavigationProp } from "../navigation/types";
+import { globalStyles, theme } from "../utils/theme";
+import Button from "../components/Button";
+import { resetPassword } from "services/user";
 
 const ForgotPasswordScreen: React.FC = () => {
-  const navigation = useNavigation<RootNavigationProp>()
-  const [email, setEmail] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState("")
-  const [success, setSuccess] = useState(false)
+  const navigation = useNavigation<RootNavigationProp>();
+  const [email, setEmail] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
 
   const handleResetPassword = async () => {
-    if (!email.trim()) {
-      setError("Email is required")
-      return
+    if (!email.trim() || !newPassword.trim() || !confirmPassword.trim()) {
+      setError("All fields are required");
+      return;
     }
 
     if (!/\S+@\S+\.\S+/.test(email)) {
-      setError("Please enter a valid email")
-      return
+      setError("Please enter a valid email");
+      return;
     }
 
-    setIsLoading(true)
-    setError("")
+    if (newPassword !== confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setError("Password must be at least 6 characters");
+      return;
+    }
+
+    setIsLoading(true);
+    setError("");
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-      setSuccess(true)
-    } catch (error) {
-      setError("Failed to send reset email. Please try again.")
+      await resetPassword(email, newPassword);
+      setSuccess(true);
+    } catch (error: any) {
+      setError(error.message || "Failed to reset password");
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <SafeAreaView style={globalStyles.safeArea}>
       <View style={[globalStyles.container, styles.container]}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Ionicons name="arrow-back" size={24} color={theme.colors.textPrimary} />
+          <Ionicons
+            name="arrow-back"
+            size={24}
+            color={theme.colors.textPrimary}
+          />
         </TouchableOpacity>
 
         <Text style={styles.title}>Reset Password</Text>
         <Text style={styles.subtitle}>
-          Enter your email address and we'll send you instructions to reset your password
+          Enter your email and set a new password
         </Text>
 
         {!success ? (
@@ -64,40 +89,65 @@ const ForgotPasswordScreen: React.FC = () => {
                 placeholderTextColor={theme.colors.textTertiary}
                 value={email}
                 onChangeText={(value) => {
-                  setEmail(value)
-                  setError("")
+                  setEmail(value);
+                  setError("");
                 }}
                 autoCapitalize="none"
                 keyboardType="email-address"
-                accessibilityLabel="Email input"
+              />
+              <TextInput
+                style={[styles.input, error ? styles.inputError : null]}
+                placeholder="New Password"
+                placeholderTextColor={theme.colors.textTertiary}
+                value={newPassword}
+                onChangeText={(value) => {
+                  setNewPassword(value);
+                  setError("");
+                }}
+                secureTextEntry
+              />
+              <TextInput
+                style={[styles.input, error ? styles.inputError : null]}
+                placeholder="Confirm Password"
+                placeholderTextColor={theme.colors.textTertiary}
+                value={confirmPassword}
+                onChangeText={(value) => {
+                  setConfirmPassword(value);
+                  setError("");
+                }}
+                secureTextEntry
               />
               {error ? <Text style={styles.errorText}>{error}</Text> : null}
             </View>
 
-            <Button 
-              title={isLoading ? "Sending..." : "Send Reset Link"} 
-              onPress={handleResetPassword} 
-              disabled={isLoading} 
+            <Button
+              title={isLoading ? "Processing..." : "Reset Password"}
+              onPress={handleResetPassword}
+              disabled={isLoading}
             />
           </>
         ) : (
           <View style={styles.successContainer}>
-            <Ionicons name="checkmark-circle" size={64} color={theme.colors.accent} />
-            <Text style={styles.successTitle}>Email Sent!</Text>
+            <Ionicons
+              name="checkmark-circle"
+              size={64}
+              color={theme.colors.accent}
+            />
+            <Text style={styles.successTitle}>Password Updated!</Text>
             <Text style={styles.successText}>
-              Please check your email for instructions to reset your password
+              You can now sign in with your new password.
             </Text>
-            <Button 
-              title="Back" 
+            <Button
+              title="Back to Login"
               style={styles.backtosigninButton}
-              onPress={() => navigation.navigate("Auth")} 
+              onPress={() => navigation.navigate("Auth")}
             />
           </View>
         )}
       </View>
     </SafeAreaView>
-  )
-}
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -139,6 +189,7 @@ const styles = StyleSheet.create({
     fontSize: theme.font.size.md,
     width: "100%",
     borderRadius: 30,
+    marginBottom: theme.spacing.md,
   },
   inputError: {
     borderColor: theme.colors.error,
@@ -169,6 +220,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: theme.spacing.xl,
   },
-})
+});
 
-export default ForgotPasswordScreen 
+export default ForgotPasswordScreen;

@@ -22,3 +22,5 @@ logs/**/*.log
 # Optional: Ignore build/dist folders (if using a build tool)
 dist/
 build/
+
+/generated/prisma

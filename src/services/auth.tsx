@@ -1,4 +1,4 @@
-const BASE_URL = "http://10.0.2.2:5000";
+const BASE_URL = "https://sharefood-api-b35u.onrender.com";
 
 export const loginUser = async (
   payload: LoginPayload

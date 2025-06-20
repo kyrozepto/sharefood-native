@@ -32,8 +32,6 @@ const DonationActivityScreen: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>("requests");
   const [isLoading, setIsLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-
-  // Data states
   const [userDonations, setUserDonations] = useState<DonationWithRequests[]>(
     []
   );
@@ -66,7 +64,6 @@ const DonationActivityScreen: React.FC = () => {
         if (matched) {
           donation.matchedRequest = matched;
 
-          // ✅ Get actual user data for the requester - Fixed: Added token parameter
           try {
             const userData = await getUserById(matched.user_id, token);
             matched.user = userData;
@@ -109,7 +106,7 @@ const DonationActivityScreen: React.FC = () => {
     setIsLoading(true);
     try {
       await updateRequest(requestId, { request_status: action }, token);
-      await loadData(); // Refresh data
+      await loadData();
       Alert.alert("Success", `Request ${action} successfully`);
     } catch (error) {
       console.error("Error updating request:", error);
@@ -124,13 +121,13 @@ const DonationActivityScreen: React.FC = () => {
       case "available":
         return theme.colors.accent;
       case "confirmed":
-        return "#FFA500"; // Orange color for confirmed
+        return "#FFA500";
       case "completed":
-        return "#4CAF50"; // Green color for completed
+        return "#4CAF50";
       case "cancelled":
         return theme.colors.error;
       case "waiting":
-        return "#9E9E9E"; // Gray color for waiting
+        return "#9E9E9E";
       default:
         return theme.colors.textSecondary;
     }
@@ -143,7 +140,6 @@ const DonationActivityScreen: React.FC = () => {
   const calculateTimeLeft = (pickupTime: string) => {
     const now = new Date();
 
-    // Combine today's date with the pickup time
     const [hours, minutes, seconds] = pickupTime.split(":").map(Number);
     const pickup = new Date(now);
     pickup.setHours(hours, minutes, seconds || 0, 0);
@@ -279,7 +275,6 @@ const DonationActivityScreen: React.FC = () => {
                 const matchedRequest =
                   donation.matchedRequest as RequestItemWithUser;
 
-                // Fixed: Added null check for user
                 const requesterUser = matchedRequest?.user;
 
                 return (
@@ -412,7 +407,6 @@ const DonationActivityScreen: React.FC = () => {
                         {donation.quantity_unit || ""}
                       </Text>
 
-                      {/* Fixed: Use the user data that was already fetched and stored in matched request */}
                       {completedRequest?.user && (
                         <View style={styles.metaItem}>
                           <Ionicons

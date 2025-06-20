@@ -136,6 +136,17 @@ class User {
       return callback(null, { success: true, user, token });
     });
   }
+
+  static findUserByEmail(email, callback) {
+    const query = `
+      SELECT * FROM users WHERE email = $1
+    `;
+    pool.query(query, [email], (err, result) => {
+      if (err) return callback(err, null);
+      if (result.rows.length === 0) return callback(null, null);
+      return callback(null, result.rows[0]);
+    });
+  }
 }
 
 module.exports = User;

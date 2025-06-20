@@ -39,10 +39,10 @@ async function getRatingById(req, res) {
 
 async function createRating(req, res) {
   try {
-    const user = req.user; // user from token
+    const user = req.user;
     const ratingData = {
       ...req.body,
-      user_id: user.user_id, // ✅ attach user_id from token
+      user_id: user.user_id,
     };
 
     Rating.createRating(ratingData, (err, createdRating) => {
@@ -53,7 +53,6 @@ async function createRating(req, res) {
           .json({ message: "Gagal membuat rating", error: err });
       }
 
-      // Fetch donation to notify donor
       Donation.getDonationById(
         createdRating.donation_id,
         (donationErr, donation) => {
@@ -62,7 +61,6 @@ async function createRating(req, res) {
             return res.status(201).json(createdRating);
           }
 
-          // Get rater name
           pool.query(
             `SELECT user_name FROM users WHERE user_id = $1`,
             [createdRating.user_id],

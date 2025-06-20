@@ -12,7 +12,7 @@ const options = {
     },
     servers: [
       {
-        url: "http://localhost:5000/api",
+        url: `${process.env.API_BASE_URL}/api`,
       },
     ],
   },
@@ -21,6 +21,7 @@ const options = {
     path.join(__dirname, "donation.js"),
     path.join(__dirname, "request.js"),
     path.join(__dirname, "rating.js"),
+    path.join(__dirname, "notification.js"),
   ],
 };
 

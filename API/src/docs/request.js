@@ -7,21 +7,21 @@
  *       properties:
  *         request_id:
  *           type: integer
- *         donation_id:
- *           type: integer
  *         user_id:
  *           type: integer
+ *         donation_id:
+ *           type: integer
  *         requested_quantity:
- *           type: string
- *           example: "2 pcs"
+ *           type: number
+ *           format: float
  *         pickup_time:
  *           type: string
- *           format: time
+ *           format: date-time
  *         note:
  *           type: string
  *         request_status:
  *           type: string
- *           enum: [waiting, approved, rejected, completed, canceled]
+ *           enum: [waiting, approved, rejected, canceled, completed]
  *         created_at:
  *           type: string
  *           format: date-time
@@ -29,19 +29,21 @@
  *     RequestInput:
  *       type: object
  *       required:
+ *         - user_id
  *         - donation_id
  *         - requested_quantity
  *         - pickup_time
- *         - note
  *       properties:
+ *         user_id:
+ *           type: integer
  *         donation_id:
  *           type: integer
  *         requested_quantity:
- *           type: string
- *           example: "3 pcs"
+ *           type: number
+ *           format: float
  *         pickup_time:
  *           type: string
- *           format: time
+ *           format: date-time
  *         note:
  *           type: string
  *
@@ -52,7 +54,7 @@
  *       properties:
  *         request_status:
  *           type: string
- *           enum: [waiting, approved, rejected, completed, canceled]
+ *           enum: [waiting, approved, rejected, canceled, completed]
  */
 
 /**
@@ -64,24 +66,26 @@
 
 /**
  * @swagger
- * /request:
+ * /requests:
  *   get:
- *     summary: Get all requests
+ *     summary: Get all donation requests
  *     tags: [Requests]
  *     responses:
  *       200:
- *         description: List of all donation requests
+ *         description: List of requests
  *         content:
  *           application/json:
  *             schema:
  *               type: array
  *               items:
  *                 $ref: '#/components/schemas/Request'
+ *       500:
+ *         description: Server error
  */
 
 /**
  * @swagger
- * /request/{id}:
+ * /requests/{id}:
  *   get:
  *     summary: Get a request by ID
  *     tags: [Requests]
@@ -94,23 +98,23 @@
  *         description: ID of the request
  *     responses:
  *       200:
- *         description: Request details
+ *         description: Request data
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Request'
  *       404:
  *         description: Request not found
+ *       500:
+ *         description: Server error
  */
 
 /**
  * @swagger
- * /request:
+ * /requests:
  *   post:
- *     summary: Create a new request for a donation
+ *     summary: Create a new donation request
  *     tags: [Requests]
- *     security:
- *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -125,19 +129,17 @@
  *             schema:
  *               $ref: '#/components/schemas/Request'
  *       400:
- *         description: Validation or lookup error
+ *         description: Validation error
  *       500:
  *         description: Server error
  */
 
 /**
  * @swagger
- * /request/{id}:
+ * /requests/{id}:
  *   put:
- *     summary: Update request status
+ *     summary: Update donation request status
  *     tags: [Requests]
- *     security:
- *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -153,11 +155,15 @@
  *             $ref: '#/components/schemas/RequestUpdateInput'
  *     responses:
  *       200:
- *         description: Request (and related donation) status updated
+ *         description: Request updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Request'
  *       400:
- *         description: Missing or invalid status
+ *         description: Invalid update data
  *       404:
- *         description: Request or related donation not found
+ *         description: Request not found
  *       500:
  *         description: Server error
  */

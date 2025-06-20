@@ -20,7 +20,7 @@
  *           format: float
  *         quantity_unit:
  *           type: string
- *           enum: [kg, g, liter, ml, pcs]
+ *           enum: [kg, g, liter, ml]
  *         expiry_date:
  *           type: string
  *           format: date
@@ -59,7 +59,7 @@
  *           format: float
  *         quantity_unit:
  *           type: string
- *           enum: [kg, g, liter, ml, pcs]
+ *           enum: [kg, g, liter, ml]
  *         category:
  *           type: string
  *           enum: [vegetables, fruits, bakery, dairy, meat, non-perishable, prepared-food]
@@ -78,6 +78,9 @@
  *         donation_status:
  *           type: string
  *           enum: [available, confirmed, completed, canceled]
+ *         donation_picture:
+ *           type: string
+ *           format: binary
  */
 
 /**
@@ -159,7 +162,7 @@
  * @swagger
  * /donation/{id}:
  *   put:
- *     summary: Update donation status
+ *     summary: Update donation status or picture
  *     tags: [Donations]
  *     security:
  *       - bearerAuth: []
@@ -173,14 +176,14 @@
  *     requestBody:
  *       required: true
  *       content:
- *         application/x-www-form-urlencoded:
+ *         multipart/form-data:
  *           schema:
  *             $ref: '#/components/schemas/DonationUpdateInput'
  *     responses:
  *       200:
- *         description: Donation status updated successfully
+ *         description: Donation updated successfully
  *       400:
- *         description: Missing or invalid donation_status
+ *         description: Missing or invalid fields
  *       404:
  *         description: Donation not found
  *       500:

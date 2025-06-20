@@ -88,10 +88,8 @@ const SignUpScreen: React.FC = () => {
         user_type: role!,
       });
 
-      // Auto-login after registration
       await login(email, password);
 
-      // Navigate to main app screen
       navigation.reset({
         index: 0,
         routes: [{ name: "Main" }],

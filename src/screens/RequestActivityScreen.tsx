@@ -39,8 +39,6 @@ const RequestActivityScreen: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>("requests");
   const [isLoading, setIsLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-
-  // Data states
   const [userRequests, setUserRequests] = useState<RequestWithDonation[]>([]);
   const [allDonations, setAllDonations] = useState<Donation[]>([]);
 
@@ -53,12 +51,10 @@ const RequestActivityScreen: React.FC = () => {
         getDonations(),
       ]);
 
-      // Filter requests by current user
       const filteredRequests = requests.filter(
         (request) => request.user_id === user.user_id
       ) as RequestWithDonation[];
 
-      // Attach donation data to each request
       for (const request of filteredRequests) {
         const donation = donations.find(
           (d) => d.donation_id === request.donation_id
@@ -67,7 +63,6 @@ const RequestActivityScreen: React.FC = () => {
         if (donation) {
           request.donation = donation;
 
-          // Get donation owner's user data
           try {
             const donationOwner = await getUserById(donation.user_id, token);
             request.donationUser = {
@@ -107,17 +102,17 @@ const RequestActivityScreen: React.FC = () => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "waiting":
-        return "#FFA500"; // Orange color for waiting
+        return "#FFA500";
       case "approved":
         return theme.colors.accent;
       case "confirmed":
-        return "#4CAF50"; // Green color for confirmed
+        return "#4CAF50";
       case "completed":
-        return "#2196F3"; // Blue color for completed
+        return "#2196F3";
       case "rejected":
         return theme.colors.error;
       case "cancelled":
-        return "#9E9E9E"; // Gray color for cancelled
+        return "#9E9E9E";
       default:
         return theme.colors.textSecondary;
     }
@@ -130,7 +125,6 @@ const RequestActivityScreen: React.FC = () => {
   const calculateTimeLeft = (pickupTime: string) => {
     const now = new Date();
 
-    // Combine today's date with the pickup time
     const [hours, minutes, seconds] = pickupTime.split(":").map(Number);
     const pickup = new Date(now);
     pickup.setHours(hours, minutes, seconds || 0, 0);

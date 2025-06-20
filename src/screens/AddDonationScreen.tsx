@@ -76,7 +76,6 @@ const AddDonationScreen: React.FC = () => {
     setErrors((prev) => ({ ...prev, [field]: "" }));
   };
 
-  // Debounce function for location search
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       if (locationQuery.trim() && locationQuery.length > 2) {
@@ -156,7 +155,6 @@ const AddDonationScreen: React.FC = () => {
         accuracy: Location.Accuracy.Balanced,
       });
 
-      // Reverse geocode to get address
       const response = await fetch(
         `https://nominatim.openstreetmap.org/reverse?format=json&lat=${currentLocation.coords.latitude}&lon=${currentLocation.coords.longitude}&addressdetails=1&countrycodes=id`,
         {
@@ -178,8 +176,6 @@ const AddDonationScreen: React.FC = () => {
       try {
         data = JSON.parse(text);
       } catch (parseError) {
-        console.error("JSON parse error:", parseError, "Response:", text);
-        // Fallback: create location data with coordinates only
         data = {
           place_id: "current_location",
           display_name: `${currentLocation.coords.latitude.toFixed(
@@ -219,8 +215,6 @@ const AddDonationScreen: React.FC = () => {
       setLoadingLocation(false);
     }
   };
-
-  // Removed auto-location filling - users can manually choose to use current location
 
   const pickImage = async () => {
     Alert.alert("Add Photo", "Choose photo source", [
@@ -302,11 +296,12 @@ const AddDonationScreen: React.FC = () => {
     }
 
     const formattedExpiry = expiryDate
-      ? `${expiryDate.getDate().toString().padStart(2, "0")}-${(
-          expiryDate.getMonth() + 1
-        )
+      ? `${expiryDate.getFullYear()}-${(expiryDate.getMonth() + 1)
           .toString()
-          .padStart(2, "0")}-${expiryDate.getFullYear()}`
+          .padStart(2, "0")}-${expiryDate
+          .getDate()
+          .toString()
+          .padStart(2, "0")}`
       : "";
 
     setIsLoading(true);
@@ -526,7 +521,7 @@ const AddDonationScreen: React.FC = () => {
                 styles.input,
                 styles.locationInput,
                 errors.location && styles.inputError,
-                selectedLocation && styles.inputWithSelection, // Add this line
+                selectedLocation && styles.inputWithSelection,
               ]}
               placeholder={
                 selectedLocation
@@ -538,7 +533,7 @@ const AddDonationScreen: React.FC = () => {
                   ? theme.colors.textPrimary
                   : theme.colors.textTertiary
               }
-              value={selectedLocation ? "" : locationQuery} // Show empty when location is selected
+              value={selectedLocation ? "" : locationQuery}
               onChangeText={(text) => {
                 setLocationQuery(text);
                 if (!text.trim()) {
@@ -548,7 +543,6 @@ const AddDonationScreen: React.FC = () => {
                 clearError("location");
               }}
               onFocus={() => {
-                // Clear selection when user wants to search again
                 if (selectedLocation) {
                   setSelectedLocation(null);
                   setLocationQuery("");
@@ -559,7 +553,6 @@ const AddDonationScreen: React.FC = () => {
               }}
             />
 
-            {/* Show selected location icon inside input */}
             {selectedLocation && (
               <View style={styles.selectedLocationIndicator}>
                 <Ionicons

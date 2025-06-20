@@ -48,8 +48,6 @@ const ReviewRatingScreen: React.FC = () => {
       );
 
       Alert.alert("Success", "Your rating has been submitted.");
-
-      // ✅ Navigate to Home tab inside Main stack
       navigation.navigate("Main", {
         screen: "Home",
       });
@@ -79,7 +77,6 @@ const ReviewRatingScreen: React.FC = () => {
           <View style={{ width: 24 }} />
         </View>
 
-        {/* Transaction Info */}
         <View style={styles.transactionInfo}>
           <Text style={styles.infoText}>
             You received <Text style={styles.highlight}>{quantity}</Text> of{" "}
@@ -90,7 +87,6 @@ const ReviewRatingScreen: React.FC = () => {
           </Text>
         </View>
 
-        {/* Rating Stars */}
         <View style={styles.ratingContainer}>
           <Text style={styles.ratingTitle}>How was your experience?</Text>
           <View style={styles.starsContainer}>
@@ -110,7 +106,6 @@ const ReviewRatingScreen: React.FC = () => {
           </View>
         </View>
 
-        {/* Review Text */}
         <View style={styles.reviewContainer}>
           <Text style={styles.reviewTitle}>Write a review (optional)</Text>
           <TextInput
@@ -125,7 +120,6 @@ const ReviewRatingScreen: React.FC = () => {
           />
         </View>
 
-        {/* Submit Button */}
         <Button
           title={isLoading ? "Submitting..." : "Submit Review"}
           onPress={handleSubmit}

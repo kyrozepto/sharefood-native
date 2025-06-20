@@ -46,8 +46,7 @@ const PickupDetailScreen: React.FC = () => {
 
   useFocusEffect(
     React.useCallback(() => {
-      let isActive = true; // Optional safeguard for async
-
+      let isActive = true;
       const fetchData = async () => {
         if (!token || !user) return;
 
@@ -107,7 +106,7 @@ const PickupDetailScreen: React.FC = () => {
         {
           text: "Yes",
           style: "destructive",
-          onPress: () => handleStatusUpdate("canceled", isDonor), // donor triggers "rejected"
+          onPress: () => handleStatusUpdate("canceled", isDonor),
         },
       ]
     );
